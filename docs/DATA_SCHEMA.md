@@ -9,7 +9,7 @@
 - 형식: `window.GAME_DATA = { ... };` 형태의 **자바스크립트 객체**. JSON이 아니므로 주석(`//`)을 써도 된다. `window.STORY_DATA` 라는 이름도 인식한다.
 - 문자열 안의 줄바꿈은 `\n`.
 - 이미지 경로는 프로젝트 기준 상대경로. 권장 폴더:
-  - 캐릭터 초상화 `assets/char/이름_표정.png` (세로형, 배경 투명 PNG 권장)
+  - 캐릭터 초상화 `assets/chars/이름_표정.png` (세로형, 배경 투명 PNG 권장)
   - 배경 `assets/bg/장면.jpg` (가로 16:9, 1600px 이상)
   - 압류품 삽화 `assets/mem/압류품id.jpg` (작게, 가로 800px 이하)
   - 이미지가 없거나 경로가 틀려도 게임은 돌아간다(기본 실루엣·기본 배경 사용). 경로 오류는 타이틀 화면 "데이터 점검"에 표시된다.
@@ -265,13 +265,36 @@ endings: {
 
 ## 15. 사용할 수 있는 값
 
-- `bgmMood`: `office`(형광등 사무실), `calm`, `tense`, `dread`, `warm`, `sad`, `silence`
+- `bgmMood`: `office`(형광등 사무실), `calm`, `tense`, `dread`, `warm`, `sad`, `mystery`, `truth`, `climax`, `silence`
 - `sfx`: `type`, `typewriter`, `bell`, `stamp`, `insert`, `beep`, `click`, `deny`, `paper`, `drawer`, `burn`, `glitch`, `scribble`, `knock`, `chime`, `whoosh`, `heartbeat`
 - `effect`: `shake`, `glitch`, `flash`, `flicker`, `dark`
 
 모든 소리는 Web Audio API로 실시간 합성되므로 오디오 파일이 필요 없다.
 
-## 16. 넘기기 전 점검
+## 16. 제미나이 v1 형식 호환 (엔진이 자동 변환)
+
+제미나이 시나리오 v1 은 아래 형식으로 들어왔고, 엔진의 `adaptData` 가 그대로 읽는다. 다음 버전도 이 형식을 써도 된다.
+
+| 제미나이 형식 | 엔진이 해석하는 방식 |
+| :- | :- |
+| `meta.protagonistId: "0404"` | 주인공 사번. 이름표·HUD는 `#0404` |
+| `assets.portraits.{그룹}.{표정}` | 대사 줄의 `portrait` 경로가 속한 그룹을 그 화자의 초상화 세트로 연결 |
+| 대사 줄 `portrait: null` | 초상화를 내림 |
+| 화자 `"시스템"` | 초상화 없이 단말기 글씨(호박색 고정폭)로 표시 |
+| `notebook[].title` | 수첩 항목 제목(붉은 밑줄) |
+| `notebook[].linkedMemoryId` | 그 압류품이 나오는 날부터 수첩에 보임 (`condition` 이 없을 때) |
+| `notebook[].redactKeyword`, `seizedMemories[].redactKeyword` | 그 압류품을 소각하면 수첩 전체에서 그 단어만 `█` 로 지워짐 |
+| `seizedMemories[].grade` (모든 압류품에 있을 때) | 판독기가 등급을 자동 판정해 도장을 찍음. 등급 버튼은 숨김. `SSR` 같은 등급도 가능 |
+| `endings.inputPrompt` + 각 엔딩의 `triggerKeywords` | 마지막 챕터 뒤 최후의 타이핑 단계. 입력한 단어가 `triggerKeywords` 와 맞는 엔딩으로 감 |
+| `triggerKeywords: []` 인 엔딩 | 타이핑으로는 갈 수 없음. `meta.gameOverEnding` 으로 지정해 감찰 적발 엔딩으로 사용 |
+
+함께 추가된 필드:
+
+- `seizedMemories[].erasesNotebook: "all"` 소각 시 수첩 전체를 `█` 로 지움
+- `burnEffects` / `hideEffects` / 대사 `effects` 의 `muffle: 0.15` 배경음을 그만큼 영구히 더 먹먹하게 함 (0~1 누적)
+- `bgmMood` 에 `mystery`, `truth`, `climax` 추가 (별칭 `melancholy` = `sad`, `work` = `office`)
+
+## 17. 넘기기 전 점검
 
 1. `data/story-data.js` 를 교체하고 `index.html` 을 브라우저로 연다.
 2. 타이틀 화면에 "데이터 점검: 확인할 항목 N건" 이 보이면 눌러서 오타(없는 id, 해석 안 되는 조건식, 없는 엔딩 등)를 고친다.

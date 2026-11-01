@@ -18,7 +18,8 @@
   let fireLevel = 0.3;
   let crackleTimer = null;
 
-  const MOOD_ALIAS = { neutral: 'office', normal: 'office', work: 'office', sad: 'sad', melancholy: 'sad', calm: 'calm', tense: 'tense', dread: 'dread', horror: 'dread', fear: 'dread', warm: 'warm', hope: 'warm', tender: 'warm', silence: 'silence', none: 'silence', office: 'office' };
+  const MOOD_ALIAS = { neutral: 'office', normal: 'office', work: 'office', sad: 'sad', melancholy: 'sad', calm: 'calm', tense: 'tense', dread: 'dread', horror: 'dread', fear: 'dread', warm: 'warm', hope: 'warm', tender: 'warm', silence: 'silence', none: 'silence', office: 'office',
+    mystery: 'mystery', mysterious: 'mystery', truth: 'truth', reveal: 'truth', climax: 'climax', finale: 'climax' };
 
   // 각 무드: 드론 보이스 [주파수, 파형, 음량], 로우패스, LFO 속도, 추가 노이즈 [종류, 음량, 컷오프], 펄스 [주파수, 음량, 주기]
   const MOODS = {
@@ -28,6 +29,12 @@
     dread:   { voices: [[41.2, 'sine', 0.09], [43.65, 'sine', 0.07], [61.7, 'triangle', 0.02]], lp: 260, lfo: 0.05, noise: ['brown', 0.06, 220] },
     warm:    { voices: [[130.81, 'triangle', 0.03], [164.81, 'triangle', 0.025], [196, 'sine', 0.03], [261.63, 'sine', 0.012]], lp: 1500, lfo: 0.09 },
     sad:     { voices: [[110, 'sine', 0.045], [130.81, 'sine', 0.03], [164.81, 'sine', 0.025], [55, 'sine', 0.03]], lp: 800, lfo: 0.06 },
+    // 창구 너머의 잔상: 트라이톤이 섞인 흔들리는 고음
+    mystery: { voices: [[220, 'sine', 0.03], [311.13, 'sine', 0.022], [466.16, 'triangle', 0.008], [110, 'sine', 0.02]], lp: 1400, lfo: 0.11, pulse: [1244.5, 0.006, 2.3] },
+    // 진실: 깊은 저음 드론 위로 하얀 바람(백색 침묵) 노이즈
+    truth:   { voices: [[65.41, 'sine', 0.07], [98, 'sine', 0.04], [130.81, 'triangle', 0.015], [196, 'sine', 0.012]], lp: 650, lfo: 0.04, noise: ['pink', 0.035, 2600] },
+    // 마지막 날: 맥박처럼 뛰는 저음과 거친 톱니파
+    climax:  { voices: [[41.2, 'sine', 0.06], [55, 'sawtooth', 0.03], [82.41, 'sawtooth', 0.02], [110, 'square', 0.005]], lp: 520, lfo: 0.25, pulse: [62, 0.05, 0.8] },
     silence: null
   };
 
@@ -354,7 +361,7 @@
   function setMood(name) {
     if (name == null) return;
     const key = MOOD_ALIAS[name] || (MOODS.hasOwnProperty(name) ? name : null);
-    if (!key) { console.warn('[Sfx] 알 수 없는 bgmMood:', name, '(사용 가능: office, calm, tense, dread, warm, sad, silence)'); return; }
+    if (!key) { console.warn('[Sfx] 알 수 없는 bgmMood:', name, '(사용 가능: ' + Object.keys(MOODS).join(', ') + ')'); return; }
     if (mood && mood.name === key) return;
     if (!ctx) { mood = { name: key, pending: true }; return; }
     const t = now();
@@ -436,6 +443,7 @@
     setFire, setHum, setMood, setMuffle, muffleDip, setMuted, setVolume,
     get volume() { return volume; },
     MOODS: Object.keys(MOODS),
+    MOOD_NAMES: Object.keys(MOODS).concat(Object.keys(MOOD_ALIAS)),
     SFX: Object.keys(NAMED)
   };
 })();

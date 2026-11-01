@@ -200,6 +200,8 @@ button:disabled { cursor: default; }
 .dlg-text { font-family: var(--f-serif); font-size: 17px; line-height: 1.75; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; min-height: 1.75em; }
 .dialogue.narration .dlg-text { color: var(--ink-dim); font-style: italic; }
 .dialogue.self .dlg-text { color: #cfd6dd; }
+.dialogue.system .dlg-text { font-family: var(--f-mono); font-size: 15px; color: var(--amber); text-shadow: 0 0 6px rgba(243, 166, 74, .35); }
+.dialogue.system .nameplate { font-family: var(--f-mono); letter-spacing: .2em; font-size: 12px; }
 .dlg-next { position: absolute; right: 14px; bottom: 6px; font-size: 11px; color: var(--ink-faint); opacity: 0; }
 .dialogue.wait .dlg-next { opacity: 1; animation: bob 1s ease-in-out infinite; }
 .choices { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
@@ -338,6 +340,7 @@ button:disabled { cursor: default; }
   pointer-events: none;
 }
 
+.rd-stamp.long { font-size: 20px; letter-spacing: -.02em; }
 .reader-controls { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
 .grade-row { display: flex; align-items: center; gap: 6px; }
 .grade-label { font-size: 11px; color: var(--ink-faint); margin-right: 2px; }
@@ -437,6 +440,7 @@ button:disabled { cursor: default; }
 .nb-list { list-style: none; padding: 0 0 0 26px !important; margin: 0; font-family: var(--f-hand); font-size: 24px; line-height: 30px; color: #1f2a55; }
 .nb-list li { margin: 0 0 6px; position: relative; word-break: keep-all; overflow-wrap: anywhere; }
 .nb-list li.new { animation: inkIn 1.2s ease; }
+.nb-list .nb-title { display: block; color: #7a2d22; font-size: 20px; text-decoration: underline; text-decoration-color: rgba(122, 45, 34, .4); text-underline-offset: 4px; }
 .nb-list li .nb-date { font-family: var(--f-mono); font-size: 10px; color: #8a7d68; position: absolute; left: -30px; top: 0; width: 26px; text-align: right; line-height: 30px; }
 .nb-list .redact { color: #0b0b0b; background: #0b0b0b; }
 .nb-empty { font-family: var(--f-hand); font-size: 22px; color: #6d6252; padding-left: 26px; }
@@ -578,8 +582,10 @@ button:disabled { cursor: default; }
   .hud-dept { display: none; }
   .hud-gauges { gap: 8px; flex: 1 1 auto; justify-content: flex-end; }
   .gauge { grid-template-columns: auto auto; grid-template-areas: "l v" "b b"; gap: 1px 6px; }
-  .gauge-label { grid-area: l; font-size: 10px; }
-  .gauge-bar { grid-area: b; width: 76px; }
+  .gauge-label { grid-area: l; font-size: 0; }
+  .gauge-label::before { content: attr(data-short); font-size: 10px; }
+  .gauge-bar { grid-area: b; width: 84px; }
+  .hud-role { display: none; }
   .gauge-val { grid-area: v; min-width: 0; font-size: 10px; text-align: right; }
   .window-view { flex-basis: 36%; }
   .dialogue { bottom: 8px; padding: 18px 14px 14px; }

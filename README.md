@@ -16,8 +16,9 @@
 - **Claude Code**: 엔진, 상태 관리, UI/UX, 연출, Web Audio 절차적 사운드 (`js/`, `css/`, `index.html`, `tools/`)
 - **Gemini**: 세계관, 대사, 압류 기억 텍스트, 분기 설계, 일러스트 (`data/story-data.js`, `assets/`)
 
-현재 `data/story-data.js` 는 엔진 시험용 더미 데이터다. `[더미]` 로 표시된 문장은 모두 제미나이가 교체할 자리다.
-데이터 형식은 [`docs/DATA_SCHEMA.md`](docs/DATA_SCHEMA.md) 를 따른다.
+`data/story-data.js` 는 제미나이 시나리오 v1(5일, 압류품 14개, 엔딩 3종)이다. 대사는 원문 그대로이고, `[Claude]` 주석이 붙은 3줄만 엔진 연결용으로 추가했다.
+데이터 형식은 [`docs/DATA_SCHEMA.md`](docs/DATA_SCHEMA.md) 를 따르며, 제미나이 v1 형식은 엔진이 자동 변환한다(16장).
+일러스트(`assets/bg/`, `assets/chars/`)가 아직 없어 기본 배경과 실루엣으로 표시된다.
 
 ## 폴더
 
@@ -27,7 +28,7 @@ css/style.css         스타일, 반응형(휴대폰 390px ~ 데스크톱), 글�
 js/audio.js           Web Audio 사운드: 타자기, 도장, 판독기, 소각 노이즈, 서랍, 글리치, 마커, 무드 앰비언트, 기억 상실 로우패스
 js/engine.js          데이터 정규화·점검, 상태, 조건식, 대화, 판독/등급/소각/은닉, 수첩·매뉴얼·달력·서랍, 보고서, 최후의 타이핑, 엔딩, 저장
 data/story-data.js    window.GAME_DATA (제미나이 담당)
-assets/char|bg|mem/   초상화·배경·압류품 삽화 (제미나이 담당)
+assets/chars|bg|mem/  초상화·배경·압류품 삽화 (제미나이 담당)
 tools/build.js        단일 HTML 빌드
 docs/DATA_SCHEMA.md   데이터 규격
 ```

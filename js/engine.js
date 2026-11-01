@@ -42,15 +42,91 @@
     hintSelfMemories: true
   };
   const KNOWN_EFFECTS = ['shake', 'glitch', 'flash', 'flicker', 'dark'];
-  const MOOD_NAMES = ['office', 'calm', 'tense', 'dread', 'warm', 'sad', 'silence', 'neutral', 'normal', 'work', 'melancholy', 'horror', 'fear', 'hope', 'tender', 'none'];
+  const MOOD_NAMES = (Sfx.MOOD_NAMES && Sfx.MOOD_NAMES.length) ? Sfx.MOOD_NAMES : ['office', 'calm', 'tense', 'dread', 'warm', 'sad', 'mystery', 'truth', 'climax', 'silence'];
+  const SYSTEM_NAMES = ['시스템', 'SYSTEM', 'System', 'system'];
 
   const RAW = window.GAME_DATA || window.STORY_DATA || null;
   const MEM = {};      // id → memory
-  const D = normalize(RAW);
+  const D = normalize(adaptData(RAW));
   const TOTAL_SELF = Object.values(MEM).filter((m) => m.isProtagonistMemory).length;
   const DATA_SIG = D.chapters.map((c) => c.id + ':' + c.seizedMemories.length).join('|');
   const rules = D.meta.rules;
   validate();
+
+  /**
+   * 호환 계층: 제미나이 v1 형식을 규격으로 옮긴다. 이미 규격대로인 데이터는 그대로 통과한다.
+   *  - meta.protagonistId            → meta.protagonist
+   *  - assets.portraits(그룹)        → characters[화자].portraits (대사 줄의 portrait 경로로 화자를 찾음)
+   *  - endings.inputPrompt + 각 엔딩의 triggerKeywords → 마지막 챕터의 finale
+   *  - notebook.linkedMemoryId       → 그 압류품이 나오는 날부터 수첩에 보임 (condition 이 없을 때)
+   *  - 모든 압류품에 grade 가 적혀 있음 → 판독기가 등급을 자동 판정 (rules.requireGrade 기본 false)
+   */
+  function adaptData(raw) {
+    if (!raw || typeof raw !== 'object') return raw;
+    const d = Object.assign({}, raw);
+    const m = Object.assign({}, d.meta || {});
+    if (m.protagonistId != null && !m.protagonist) m.protagonist = { id: String(m.protagonistId), name: '#' + m.protagonistId };
+    const chapters = arr(d.chapters).slice();
+    const lines = [];
+    const collect = (ls) => arr(ls).forEach((l) => { if (l && typeof l === 'object') lines.push(l); });
+    chapters.forEach((c) => {
+      if (!c) return;
+      collect(c.dialogues); collect(c.outroDialogues);
+      arr(c.events).forEach((ev) => collect(ev && ev.dialogues));
+      arr(c.seizedMemories).forEach((mm) => { if (mm) { collect(mm.onBurn); collect(mm.onHide); } });
+    });
+    // 엔딩: 문자열 값(inputPrompt)은 엔딩이 아니다. triggerKeywords 는 최후의 타이핑 정답이 된다.
+    let inputPrompt = null;
+    const endings = {}, answers = [];
+    Object.entries(d.endings && typeof d.endings === 'object' ? d.endings : {}).forEach(([k, v]) => {
+      if (typeof v === 'string') { if (k === 'inputPrompt') inputPrompt = v; return; }
+      endings[k] = v;
+      arr(v).forEach((x) => {
+        if (!x) return;
+        collect(x.dialogues);
+        if (Array.isArray(x.triggerKeywords) && x.triggerKeywords.length) answers.push({ match: x.triggerKeywords.slice(), ending: k });
+      });
+    });
+    d.endings = endings;
+    if (chapters.length && (answers.length || inputPrompt) && !chapters.some((c) => c && c.finale)) {
+      const li = chapters.length - 1;
+      chapters[li] = Object.assign({}, chapters[li], { finale: { prompt: inputPrompt || '', answers } });
+    }
+    // 초상화 그룹 → 화자
+    const groups = (d.assets && d.assets.portraits) || {};
+    const characters = Object.assign({}, d.characters || {});
+    const palette = ['#c94a3a', '#8a8170', '#9fb7d9', '#b49a5f', '#7f9f86', '#a77fb5'];
+    let pi = Object.keys(characters).length;
+    lines.forEach((l) => {
+      if (!l.speaker || SYSTEM_NAMES.includes(l.speaker)) return;
+      let c = characters[l.speaker];
+      if (!c) { c = characters[l.speaker] = { color: palette[pi++ % palette.length] }; }
+      else characters[l.speaker] = c = Object.assign({}, c);
+      if (l.portrait && (!c.portraits || !Object.keys(c.portraits).length)) {
+        const g = Object.values(groups).find((grp) => grp && typeof grp === 'object' && Object.values(grp).includes(l.portrait));
+        if (g) c.portraits = Object.assign({}, g);
+      }
+    });
+    d.characters = characters;
+    // 수첩: 연결된 압류품이 나오는 날부터
+    const memDay = {};
+    chapters.forEach((c, i) => arr(c && c.seizedMemories).forEach((mm) => { if (mm && mm.id) memDay[mm.id] = i + 1; }));
+    d.notebook = arr(d.notebook).map((e) => {
+      if (!e || typeof e !== 'object') return e;
+      const x = Object.assign({}, e);
+      const day = memDay[x.linkedMemoryId];
+      if (x.linkedMemoryId && x.condition == null && day) { x.condition = 'day>=' + day; if (x.day == null) x.day = day; }
+      return x;
+    });
+    // 등급
+    const mems = [];
+    chapters.forEach((c) => arr(c && c.seizedMemories).forEach((mm) => mems.push(mm)));
+    m.rules = Object.assign({}, m.rules || {});
+    if (m.rules.requireGrade == null && mems.length && mems.every((mm) => mm && mm.grade)) m.rules.requireGrade = false;
+    d.meta = m;
+    d.chapters = chapters;
+    return d;
+  }
 
   function normalize(raw) {
     if (!raw || typeof raw !== 'object') {
@@ -66,6 +142,7 @@
       title: m.title || '404호 소각로',
       subtitle: m.subtitle || 'Incinerator No. 404',
       protagonist, selfNames, rules: r,
+      systemNames: new Set(SYSTEM_NAMES.concat(arr(m.systemSpeakers))),
       gameOverEnding: m.gameOverEnding || null,
       defaultEnding: m.defaultEnding || null,
       manual: arr(m.manual)
@@ -99,16 +176,22 @@
 
     const notebook = arr(raw.notebook).map((e, i) => ({
       id: (e && e.id) || ('nb_' + (i + 1)),
+      title: (e && e.title) || '',
       text: (e && e.text) || '',
       day: e && e.day != null ? e.day : null,
       condition: e && e.condition,
-      erasedBy: arr(e && e.erasedBy)
+      erasedBy: arr(e && e.erasedBy),
+      linkedMemoryId: (e && e.linkedMemoryId) || null,
+      redactKeyword: (e && e.redactKeyword) || null
     }));
-    // 기억 쪽에서 지정한 erasesNotebook 도 수첩 항목에 연결
-    Object.values(MEM).forEach((mm) => arr(mm.erasesNotebook).forEach((nid) => {
-      const e = notebook.find((x) => x.id === nid);
-      if (e) { if (!e.erasedBy.includes(mm.id)) e.erasedBy.push(mm.id); } else warn(`${mm.id}.erasesNotebook: 수첩 항목 "${nid}" 이 없습니다.`);
-    }));
+    // 기억 쪽에서 지정한 erasesNotebook 도 수첩 항목에 연결 ("all" 이면 수첩 전체)
+    Object.values(MEM).forEach((mm) => {
+      const list = mm.erasesNotebook === 'all' || arr(mm.erasesNotebook).includes('all') ? notebook.map((x) => x.id) : arr(mm.erasesNotebook);
+      list.forEach((nid) => {
+        const e = notebook.find((x) => x.id === nid);
+        if (e) { if (!e.erasedBy.includes(mm.id)) e.erasedBy.push(mm.id); } else warn(`${mm.id}.erasesNotebook: 수첩 항목 "${nid}" 이 없습니다.`);
+      });
+    });
 
     const endings = {};
     Object.entries(raw.endings || {}).forEach(([k, v]) => { endings[k] = arr(v).map((x) => Object.assign({ title: '', epilogue: '', dialogues: [] }, x)); });
@@ -169,7 +252,7 @@
         if (!l || typeof l !== 'object') { warn(`${where}[${i}]: 대사 줄이 객체가 아닙니다.`); return; }
         const w = `${where}[${i}]`;
         checkCond(l.condition, w); checkText(l.text, w);
-        if (l.speaker && !D.characters[l.speaker] && !D.meta.selfNames.has(l.speaker) && !['나레이션', 'narration'].includes(l.speaker) && !speakersSeen.has(l.speaker)) {
+        if (l.speaker && !D.characters[l.speaker] && !D.meta.selfNames.has(l.speaker) && !D.meta.systemNames.has(l.speaker) && !['나레이션', 'narration'].includes(l.speaker) && !speakersSeen.has(l.speaker)) {
           speakersSeen.add(l.speaker); warn(`${w}: characters 에 "${l.speaker}" 정의가 없어 기본 실루엣으로 표시합니다.`);
         }
         if (l.bgmMood && !MOOD_NAMES.includes(l.bgmMood)) warn(`${w}: 알 수 없는 bgmMood "${l.bgmMood}" (사용 가능: office, calm, tense, dread, warm, sad, silence)`);
@@ -186,6 +269,8 @@
     D.chapters.forEach((c) => {
       const w = c.id;
       if (!c.quota && c.seizedMemories.length) warn(`${w}: quota 가 0 입니다 (할당량 판정이 항상 달성으로 처리됨).`);
+      const maxHeat = c.seizedMemories.reduce((a, mm) => a + mm.calories, 0);
+      if (c.quota > maxHeat) warn(`${w}: 할당량 ${c.quota} 이 그날 압류품 열량 합계 ${maxHeat} 보다 커서 달성할 수 없습니다.`);
       checkLines(c.dialogues, `${w}.dialogues`);
       checkLines(c.outroDialogues, `${w}.outroDialogues`);
       c.events.forEach((ev, i) => {
@@ -197,7 +282,7 @@
         const mw = `${w}.${m.id}`;
         ['title', 'previewText'].forEach((k) => { if (!m[k]) warn(`${mw}: ${k} 가 비어 있습니다.`); });
         if (!m.calories) warn(`${mw}: calories 가 0 입니다.`);
-        if (m.grade && !rules.gradeTable.some((g) => g.grade === m.grade)) warn(`${mw}: grade "${m.grade}" 가 gradeTable 에 없습니다.`);
+        if (rules.requireGrade && m.grade && !rules.gradeTable.some((g) => g.grade === m.grade)) warn(`${mw}: grade "${m.grade}" 가 gradeTable 에 없습니다.`);
         checkCond(m.condition, mw); checkText(m.previewText, mw); checkText(m.title, mw);
         checkLines(m.onBurn, `${mw}.onBurn`); checkLines(m.onHide, `${mw}.onHide`);
       });
@@ -214,6 +299,8 @@
     D.notebook.forEach((e) => {
       checkCond(e.condition, `notebook.${e.id}`); checkText(e.text, `notebook.${e.id}`);
       e.erasedBy.forEach((id) => { if (!MEM[id]) warn(`notebook.${e.id}.erasedBy: 압류품 "${id}" 이 없습니다.`); });
+      if (e.linkedMemoryId && !MEM[e.linkedMemoryId]) warn(`notebook.${e.id}.linkedMemoryId: 압류품 "${e.linkedMemoryId}" 이 없습니다.`);
+      if (e.redactKeyword && !e.text.includes(e.redactKeyword)) warn(`notebook.${e.id}: redactKeyword "${e.redactKeyword}" 가 본문에 없습니다.`);
     });
     Object.entries(D.endings).forEach(([k, vs]) => vs.forEach((v, i) => { checkCond(v.condition, `endings.${k}[${i}]`); checkLines(v.dialogues, `endings.${k}[${i}].dialogues`); }));
     if (D.meta.gameOverEnding && !endingIds.has(D.meta.gameOverEnding)) warn(`meta.gameOverEnding "${D.meta.gameOverEnding}" 이 endings 에 없습니다.`);
@@ -240,7 +327,7 @@
       suspicion: Number(rules.startSuspicion) || 0,
       burnedSelf: 0, totalHeat: 0, dayHeat: 0,
       quota: {}, grades: {}, dayLog: [], history: [],
-      firedEvents: [], seenNotebook: [], finaleAnswer: null
+      firedEvents: [], seenNotebook: [], finaleAnswer: null, extraMuffle: 0
     };
   }
   let S = freshState();
@@ -306,8 +393,11 @@
     }
   }
   /** burnEffects / hideEffects 처럼 효과 객체 자체를 받는 경우 */
+  /** 먹먹함 = 자기 기억 훼손도 + 데이터 효과(muffle) 누적 */
+  function applyMuffle() { Sfx.setMuffle(clamp(corruptLevel() * 0.85 + (S.extraMuffle || 0), 0, 1)); }
   function applyEffectObject(e) {
     if (!e) return;
+    if (e.muffle) { S.extraMuffle = clamp((S.extraMuffle || 0) + Number(e.muffle), 0, 1); applyMuffle(); Sfx.muffleDip(); }
     arr(e.setFlags).forEach(addFlag);
     arr(e.clearFlags).forEach((f) => { S.flags = S.flags.filter((x) => x !== f); });
     if (e.suspicion) addSuspicion(e.suspicion);
@@ -362,7 +452,7 @@
   ['app', 'hud', 'hudBadge', 'hudDay', 'gaugeHeat', 'gaugeSus', 'btnSound', 'btnMenu', 'stage', 'windowView', 'scene', 'bgImage', 'portrait', 'portraitImg', 'silhouette', 'silhouetteName',
     'dialogue', 'dialogueBody', 'speaker', 'dialogueText', 'choices', 'desk', 'tray', 'trayList', 'trayCount', 'reader', 'readerSlot', 'readerScreen', 'readerIdle', 'readerContent', 'gradeRow',
     'btnBurn', 'btnHide', 'furnace', 'furnaceMouth', 'fireCanvas', 'furnaceVal', 'tools', 'toolNotebook', 'toolManual', 'toolCalendar', 'toolDrawer', 'badgeNotebook', 'badgeDrawer', 'calIcon',
-    'btnEndShift', 'vignette', 'glitchLayer', 'toasts', 'modal', 'modalCard', 'modalClose', 'modalBody', 'screenTitle', 'titleMain', 'titleSub', 'btnNew', 'btnContinue', 'titleMeta',
+    'btnEndShift', 'vignette', 'glitchLayer', 'toasts', 'modal', 'modalCard', 'modalClose', 'modalBody', 'screenTitle', 'titleStamp', 'titleMain', 'titleSub', 'btnNew', 'btnContinue', 'titleMeta',
     'titleWarn', 'titleWarnSum', 'titleWarnList', 'screenDay', 'dayDate', 'dayTitle', 'dayQuota', 'screenReport', 'reportCard', 'screenFinale', 'finaleCanvas', 'finalePrompt', 'finaleForm',
     'finaleInput', 'finaleSubmit', 'finaleMsg', 'finaleFly', 'screenEnding', 'endingTitle', 'endingText', 'endingStats', 'btnEndingBack', 'debugPanel'
   ].forEach((id) => { E[id] = $(id); });
@@ -411,7 +501,7 @@
     E.gaugeSus.querySelector('.gauge-val').textContent = `${Math.round(S.suspicion)}`;
     E.gaugeSus.classList.toggle('warn', S.suspicion >= maxS * 0.7);
     const lvl = corruptLevel();
-    E.hudBadge.innerHTML = '감정평가사 ' + corruptHTML('#' + D.meta.protagonist.id, lvl * 0.6, 'badge');
+    E.hudBadge.innerHTML = '<span class="hud-role">감정평가사 </span>' + corruptHTML('#' + D.meta.protagonist.id, lvl * 0.6, 'badge');
     E.calIcon.innerHTML = corruptHTML(String(S.chapterIndex + 1), lvl * 0.4, 'calicon');
     E.furnaceVal.textContent = S.dayHeat;
     root.style.setProperty('--corrupt', lvl.toFixed(3));
@@ -525,14 +615,17 @@
   async function showLine(L, noWait) {
     const sp = L.speaker == null ? '' : String(L.speaker);
     const isNarr = sp === '' || sp === '나레이션' || sp === 'narration';
-    const isSelf = !isNarr && D.meta.selfNames.has(sp);
+    const isSystem = !isNarr && D.meta.systemNames.has(sp);
+    const isSelf = !isNarr && !isSystem && D.meta.selfNames.has(sp);
     const ch = D.characters[sp];
     E.speaker.textContent = isNarr ? '' : plain(ch ? ch.displayName : sp);
     E.speaker.style.setProperty('--nc', isSelf ? '#cfd6dd' : (ch && ch.color) || '');
     E.dialogue.classList.toggle('narration', isNarr);
     E.dialogue.classList.toggle('self', isSelf);
-    if (!isNarr && !isSelf) showPortrait(sp, L.expression, L.portrait);
-    if (L.hidePortrait) hidePortrait();
+    E.dialogue.classList.toggle('system', isSystem);
+    if (isSystem) E.speaker.style.setProperty('--nc', 'var(--amber)');
+    if (isSystem || L.portrait === null || L.hidePortrait) hidePortrait();
+    else if (!isNarr && !isSelf) showPortrait(sp, L.expression, L.portrait);
     E.choices.innerHTML = '';
     E.dialogue.classList.remove('wait');
     setDialogueOpen(true);
@@ -752,19 +845,28 @@
     const b = cal.querySelector('b');
     const steps = reduceMotion ? 1 : 14;
     for (let k = 1; k <= steps; k++) { b.textContent = Math.round(m.calories * k / steps); if (k % 3 === 0) Sfx.beep(900 + k * 20, 0.02); await sleep(30); }
-    if (!rules.requireGrade) cal.querySelector('small').textContent = `등급 ${gradeFor(m)}`;
+    if (!rules.requireGrade) {
+      cal.querySelector('small').textContent = '판독기 자동 판정';
+      await sleep(180);
+      putStamp(gradeFor(m));
+      Sfx.stamp();
+    }
     c.scrollTop = c.scrollHeight;
     ui.current = m;
     ui.busy = false; refreshLock(); setControls();
   }
 
+  function putStamp(g) {
+    const old = E.readerScreen.querySelector('.rd-stamp'); if (old) old.remove();
+    const st = h('div', 'rd-stamp' + (String(g).length > 1 ? ' long' : ''), g);
+    E.readerScreen.appendChild(st);
+  }
   function stampGrade(g) {
     const m = ui.current;
     if (!m || S.grades[m.id] || ui.busy) return;
     S.grades[m.id] = { given: g, correct: gradeFor(m) };
     Sfx.stamp();
-    const st = h('div', 'rd-stamp', g);
-    E.readerScreen.appendChild(st);
+    putStamp(g);
     setControls();
   }
 
@@ -824,7 +926,7 @@
   async function selfMemoryLoss(before) {
     fx('glitch');
     Sfx.muffleDip();
-    Sfx.setMuffle(corruptLevel() * 0.85);
+    applyMuffle();
     updateHUD();
     const after = notebookSnapshot();
     const changed = Object.keys(after).some((id) => before[id] && after[id].some((r, k) => r && !before[id][k]));
@@ -835,10 +937,28 @@
   }
 
   // ════════════════════════ 11. 수첩 · 매뉴얼 · 달력 · 서랍 · 메뉴 ════════════════════════
+  /** 수첩 한 항목을 글자 단위로 펼친다. part: 't' 제목, 'x' 본문. r: 가려짐 */
   function entryRedactions(e) {
     const erased = e.erasedBy.some((id) => S.burned.includes(id));
+    const kws = [];
+    if (e.redactKeyword && e.linkedMemoryId && S.burned.includes(e.linkedMemoryId)) kws.push(e.redactKeyword);
+    S.burned.forEach((id) => { const k = MEM[id] && MEM[id].redactKeyword; if (k && !kws.includes(k)) kws.push(k); });
     const out = [];
-    segments(e.text).forEach((g) => chars(g.t).forEach((c) => out.push({ c, r: erased || g.r })));
+    const push = (text, part) => {
+      const start = out.length;
+      segments(text).forEach((g) => chars(g.t).forEach((c) => out.push({ c, r: erased || g.r, part })));
+      kws.forEach((kw) => {
+        const k = chars(kw);
+        if (!k.length) return;
+        for (let i = start; i + k.length <= out.length; i++) {
+          let hit = true;
+          for (let j = 0; j < k.length; j++) if (out[i + j].c !== k[j]) { hit = false; break; }
+          if (hit) for (let j = 0; j < k.length; j++) out[i + j].r = true;
+        }
+      });
+    };
+    if (e.title) push(e.title, 't');
+    push(e.text, 'x');
     return out;
   }
   function visibleNotebook() { return D.notebook.filter((e) => evalCond(e.condition)); }
@@ -891,21 +1011,24 @@
         if (fresh.includes(e.id) && !animateFrom) li.classList.add('new');
         if (e.day != null) li.appendChild(h('span', 'nb-date', e.day + '일'));
         const prev = animateFrom && animateFrom[e.id];
+        const titleEl = e.title ? h('span', 'nb-title') : null;
+        if (titleEl) li.appendChild(titleEl);
         entryRedactions(e).forEach((x, k) => {
           const s = h('span');
           if (x.r) {
             if (prev && !prev[k]) { s.textContent = x.c; flips.push(s); }
             else { s.textContent = '█'; s.className = 'redact'; }
           } else s.textContent = x.c;
-          li.appendChild(s);
+          (x.part === 't' && titleEl ? titleEl : li).appendChild(s);
         });
         ul.appendChild(li);
       });
       body.appendChild(ul);
     }, 'notebook');
     if (flips.length) {
-      Sfx.scribble(Math.min(2.2, 0.3 + flips.length * 0.035));
-      flips.forEach((s, i) => setTimeout(() => { s.textContent = '█'; s.className = 'redact redacting'; }, 250 + i * 35));
+      const step = Math.min(35, 2600 / flips.length);
+      Sfx.scribble(Math.min(2.8, 0.3 + flips.length * step / 1000));
+      flips.forEach((s, i) => setTimeout(() => { s.textContent = '█'; s.className = 'redact redacting'; }, 250 + i * step));
     }
     return p;
   }
@@ -927,8 +1050,8 @@
         `하루 할당량을 채우지 못하면 감찰 의심도가 ${rules.quotaMissSuspicion} 오른다.`
       ];
       body.innerHTML = `<h2>${C('소각과 업무 매뉴얼', 'h')}</h2><p class="sub">${C('제 404 소각로 비치용', 's')}</p>
-        <h3 style="font-size:14px;margin:12px 0 0">${C('연료 등급표', 'th')}</h3>
-        <table><thead><tr><th>${C('등급', 'c1')}</th><th>${C('열량', 'c2')}</th></tr></thead><tbody>${rows}</tbody></table>
+        ${rules.requireGrade ? `<h3 style="font-size:14px;margin:12px 0 0">${C('연료 등급표', 'th')}</h3>
+        <table><thead><tr><th>${C('등급', 'c1')}</th><th>${C('열량', 'c2')}</th></tr></thead><tbody>${rows}</tbody></table>` : ''}
         <h3 style="font-size:14px;margin:12px 0 6px">${C('업무 절차', 'ph')}</h3>
         <ol class="manual-text">${steps.map((s, i) => `<li>${C(s, 'st' + i)}</li>`).join('')}</ol>
         ${D.meta.manual.length ? `<h3 style="font-size:14px;margin:14px 0 6px">${C('규정', 'rh')}</h3><ul class="manual-text">${D.meta.manual.map((s, i) => `<li>${C(s, 'm' + i)}</li>`).join('')}</ul>` : ''}`;
@@ -1063,7 +1186,7 @@
     S.quota[ch.id] = met;
     if (!met) addSuspicion(rules.quotaMissSuspicion);
     const items = S.dayLog.map((x) => {
-      const tag = x.action === 'burn' ? `<span class="tag burn">소각${x.grade ? ' ' + esc(x.grade) : ''}</span>` : '<span class="tag hide">은닉</span>';
+      const tag = x.action === 'burn' ? `<span class="tag burn">소각${x.grade || x.correct ? ' ' + esc(x.grade || x.correct) : ''}</span>` : '<span class="tag hide">은닉</span>';
       const extra = x.action === 'burn' ? ` · +${x.heat}${x.wrong ? ` · <b style="color:#a4321e">오판정(${esc(x.correct)})</b>` : ''}` : ` · 의심 +${x.sus}`;
       return `<li>${tag}${richHTML(x.title)}<small style="font-family:var(--f-mono);color:#6d6252">${extra}</small>${x.cons ? `<span class="cons">${richHTML(x.cons)}</span>` : ''}</li>`;
     }).join('');
@@ -1118,7 +1241,7 @@
         return ans ? ans.ending : f.fallbackEnding;
       }
       Sfx.deny(); fx('shake');
-      E.finaleMsg.innerHTML = richHTML(f.mismatchText || '');
+      E.finaleMsg.innerHTML = richHTML(f.mismatchText || '등록되지 않은 식별명입니다. 다시 입력하십시오.');
       try { E.finaleInput.select(); } catch (e) { /* 무시 */ }
     }
   }
@@ -1176,6 +1299,7 @@
     await runDialogue(e.dialogues);
     E.endingTitle.innerHTML = richHTML(e.title);
     E.endingText.innerHTML = '';
+    E.endingText.hidden = !e.epilogue;
     E.endingStats.innerHTML = [
       ['소각', S.burned.length], ['은닉', S.hidden.length], ['지워진 자기 기억', S.burnedSelf], ['총 열량', S.totalHeat], ['감찰 의심', Math.round(S.suspicion)]
     ].map(([k, v]) => `<span>${k} ${v}</span>`).join('');
@@ -1252,7 +1376,9 @@
   // ════════════════════════ 14. 타이틀 · 시작 ════════════════════════
   function hideScreens() { [E.screenDay, E.screenReport, E.screenFinale, E.screenEnding].forEach((s) => { s.hidden = true; }); }
   function refreshTitle() {
-    E.titleMain.innerHTML = richHTML(D.meta.title);
+    const tt = String(D.meta.title), cut = tt.indexOf(':');
+    if (cut > 0) { E.titleStamp.innerHTML = richHTML(tt.slice(0, cut).trim()); E.titleMain.innerHTML = richHTML(tt.slice(cut + 1).trim()); }
+    else E.titleMain.innerHTML = richHTML(tt);
     E.titleSub.innerHTML = richHTML(D.meta.subtitle);
     const save = loadSave();
     E.btnContinue.hidden = !save;
@@ -1294,7 +1420,7 @@
       if (s) { S = Object.assign(freshState(), s.state); idx = S.chapterIndex; }
     }
     S.phase = 'intro';
-    Sfx.setMuffle(corruptLevel() * 0.85);
+    applyMuffle();
     updateHUD();
     runFrom(idx);
   }
@@ -1355,7 +1481,7 @@
     const render = () => {
       p.innerHTML = '<b>DEBUG</b><br>';
       D.chapters.forEach((c, i) => { const b = h('button', '', c.id); b.onclick = () => { Sfx.init(); abortFlow(); closeModal(); hideScreens(); E.screenTitle.hidden = true; S.phase = 'intro'; runFrom(i); }; p.appendChild(b); });
-      [['의심 +20', () => addSuspicion(20)], ['열량 +100', () => { S.dayHeat += 100; updateHUD(); }], ['자기기억 소각 +1', () => { S.burnedSelf++; Sfx.setMuffle(corruptLevel() * 0.85); updateHUD(); }],
+      [['의심 +20', () => addSuspicion(20)], ['열량 +100', () => { S.dayHeat += 100; updateHUD(); }], ['자기기억 소각 +1', () => { S.burnedSelf++; applyMuffle(); updateHUD(); }],
         ['글리치', () => fx('glitch')], ['세이브 삭제', () => LS.del(KEY_SAVE)], ['상태', () => { pre.textContent = JSON.stringify(S, null, 1); }]
       ].forEach(([l, f]) => { const b = h('button', '', l); b.onclick = f; p.appendChild(b); });
       const pre = h('pre'); p.appendChild(pre);
@@ -1414,6 +1540,7 @@
   function boot() {
     bind();
     E.btnSound.classList.toggle('off', settings.muted);
+    E.gradeRow.hidden = !rules.requireGrade;
     ui.fire = FireFX(E.fireCanvas, () => ui.fireLevel);
     ui.finaleFire = FireFX(E.finaleCanvas, () => 0.7);
     setupDebug();
