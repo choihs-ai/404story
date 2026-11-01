@@ -76,9 +76,9 @@ characters: {
 | `bgmMood` | | 그날 시작 분위기 (아래 목록) |
 | `dialogues` | | 출근 직후 대화 (기획서 규격) |
 | `seizedMemories` | | 그날 처리할 압류품. 비어 있으면 업무 단계와 보고서를 건너뜀 |
-| `events` | | 업무 도중 끼어드는 대화 (아래 8장) |
+| `events` | | 업무 도중 끼어드는 대화 (9장) |
 | `outroDialogues` | | 업무 보고서 뒤 퇴근 대화 |
-| `finale` | | 있으면 퇴근 대화 뒤 최후의 타이핑 단계로 들어가 엔딩으로 끝남 (10장) |
+| `finale` | | 있으면 퇴근 대화 뒤 최후의 타이핑 단계로 들어가 엔딩으로 끝남 (12장) |
 | `next` | | 다음 날 분기. 생략하면 배열 다음 챕터 (11장) |
 | `skipReport` | | `true` 면 업무 보고서 화면 생략 |
 
@@ -96,9 +96,9 @@ characters: {
 | `expression` | 초상화 표정 키 |
 | `text` | 대사. 7장의 표기법 사용 가능 |
 | `bgmMood` | 이 줄부터 배경 앰비언트 변경 |
-| `condition` | 조건이 참일 때만 이 줄을 보여줌 (12장) |
+| `condition` | 조건이 참일 때만 이 줄을 보여줌 (14장) |
 | `effect` | 화면 연출: `shake`, `glitch`, `flash`, `flicker`, `dark` |
-| `sfx` | 효과음 (13장 목록) |
+| `sfx` | 효과음 (15장 목록) |
 | `background` | 이 줄부터 배경 이미지 변경 (`"none"` 이면 기본 배경) |
 | `portrait` | 이 줄만 특정 이미지 경로로 초상화 지정 |
 | `hidePortrait` | `true` 면 초상화 내림 |
