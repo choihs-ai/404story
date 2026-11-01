@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="404호 소각로">
+<meta name="theme-color" content="#0c0b0a">
+<title>404호 소각로</title>
+<!-- 글꼴은 온라인일 때만 적용되고, 오프라인(file://)에서는 시스템 글꼴로 대체된다 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Gothic+Coding:wght@400;700&family=Nanum+Myeongjo:wght@400;700;800&family=Nanum+Pen+Script&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app" class="app" data-phase="title">
+
+  <!-- ───────────── HUD ───────────── -->
+  <header class="hud" id="hud">
+    <div class="hud-id">
+      <span class="hud-dept">등대 관리국 소각과</span>
+      <span class="hud-badge" id="hudBadge">감정평가사 #0404</span>
+    </div>
+    <div class="hud-day" id="hudDay">—</div>
+    <div class="hud-gauges">
+      <div class="gauge" id="gaugeHeat" title="등대 출력 (오늘 생산 열량 / 할당량)">
+        <span class="gauge-label">등대 출력</span>
+        <span class="gauge-bar"><i></i></span>
+        <span class="gauge-val">0/0</span>
+      </div>
+      <div class="gauge gauge-sus" id="gaugeSus" title="감찰 의심도">
+        <span class="gauge-label">감찰 의심</span>
+        <span class="gauge-bar"><i></i></span>
+        <span class="gauge-val">0</span>
+      </div>
+    </div>
+    <div class="hud-btns">
+      <button class="icon-btn" id="btnSound" aria-label="소리 켜기/끄기">♪</button>
+      <button class="icon-btn" id="btnMenu" aria-label="메뉴">≡</button>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+
+    <!-- ───────────── 민원 창구 / 비주얼 노벨 뷰 ───────────── -->
+    <section class="window-view" id="windowView">
+      <div class="scene" id="scene" aria-hidden="true">
+        <div class="sky"></div>
+        <div class="beam" id="beam"></div>
+        <svg class="skyline" viewBox="0 0 1000 300" preserveAspectRatio="none">
+          <path d="M0 300V210h40v-30h30v40h25v-70h40v60h20v-90h35v100h30v-50h45v70h20v-120l20-20 20 20v120h30v-60h40v80h25v-40h30v-70h20V90h14v-30h12v30h14v110h25v-50h40v80h30v-100h35v70h20v-40h45v60h25v-90h40v100h30v-50h35v60h25v-80h45v100h30v-40H1000v90z"/>
+        </svg>
+        <div class="lighthouse"><span class="tower"></span><span class="lamp" id="lamp"></span></div>
+        <div class="fog"></div>
+      </div>
+      <div class="bg-image" id="bgImage"></div>
+      <div class="portrait" id="portrait" aria-hidden="true">
+        <img id="portraitImg" alt="">
+        <div class="silhouette" id="silhouette"><span id="silhouetteName"></span></div>
+      </div>
+      <div class="booth" aria-hidden="true">
+        <div class="booth-glass"></div>
+        <div class="booth-bars"></div>
+        <div class="booth-counter"><span class="booth-sign">민원 창구 · 404</span><span class="booth-grille"></span></div>
+      </div>
+
+      <div class="dialogue" id="dialogue" role="dialog" aria-live="polite">
+        <div class="nameplate" id="speaker"></div>
+        <div class="dlg-body" id="dialogueBody">
+          <div class="dlg-text" id="dialogueText"></div>
+          <div class="choices" id="choices"></div>
+        </div>
+        <div class="dlg-next" id="dlgNext">▼</div>
+      </div>
+    </section>
+
+    <!-- ───────────── 감정평가 데스크 ───────────── -->
+    <section class="desk" id="desk">
+      <div class="desk-surface" aria-hidden="true"></div>
+
+      <div class="tray" id="tray">
+        <div class="panel-title">압류품 트레이 <span id="trayCount">0</span></div>
+        <div class="tray-list" id="trayList"></div>
+      </div>
+
+      <div class="reader" id="reader">
+        <div class="reader-body">
+          <div class="reader-slot" id="readerSlot"><span>판독기 투입구</span></div>
+          <div class="reader-screen" id="readerScreen">
+            <div class="rd-idle" id="readerIdle">압류 결정을 이곳으로 끌어오거나<br>트레이에서 눌러 투입하십시오.</div>
+            <div class="rd-content" id="readerContent"></div>
+            <div class="rd-scan"></div>
+          </div>
+        </div>
+        <div class="reader-controls">
+          <div class="grade-row" id="gradeRow">
+            <span class="grade-label">등급</span>
+            <button class="grade-btn" data-grade="S" disabled>S</button>
+            <button class="grade-btn" data-grade="A" disabled>A</button>
+            <button class="grade-btn" data-grade="B" disabled>B</button>
+            <button class="grade-btn" data-grade="C" disabled>C</button>
+          </div>
+          <div class="action-row">
+            <button class="act-btn act-burn" id="btnBurn" disabled>소각</button>
+            <button class="act-btn act-hide" id="btnHide" disabled>은닉</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="furnace" id="furnace">
+        <div class="panel-title">소각로 404</div>
+        <div class="furnace-mouth" id="furnaceMouth">
+          <canvas id="fireCanvas"></canvas>
+          <div class="furnace-grate"></div>
+        </div>
+        <div class="furnace-meter"><span class="fm-label">열량</span><span class="fm-val" id="furnaceVal">0</span></div>
+      </div>
+
+      <nav class="tools" id="tools">
+        <button class="tool" id="toolNotebook"><span class="tool-ico ico-note"></span><span>수첩</span><i class="badge" id="badgeNotebook"></i></button>
+        <button class="tool" id="toolManual"><span class="tool-ico ico-manual"></span><span>매뉴얼</span></button>
+        <button class="tool" id="toolCalendar"><span class="tool-ico ico-cal" id="calIcon">1</span><span>달력</span></button>
+        <button class="tool" id="toolDrawer"><span class="tool-ico ico-drawer"></span><span>서랍</span><i class="badge" id="badgeDrawer"></i></button>
+        <button class="tool tool-end" id="btnEndShift" hidden><span>업무 종료</span></button>
+      </nav>
+    </section>
+  </main>
+
+  <!-- ───────────── 오버레이 ───────────── -->
+  <div class="vignette" id="vignette" aria-hidden="true"></div>
+  <div class="glitch-layer" id="glitchLayer" aria-hidden="true"></div>
+  <div class="toast-wrap" id="toasts" aria-live="polite"></div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card paper" id="modalCard">
+      <button class="modal-close" id="modalClose" aria-label="닫기">×</button>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <div class="screen screen-title" id="screenTitle">
+    <div class="title-inner">
+      <div class="title-stamp">기억 압류 관리국</div>
+      <h1 class="title-main" id="titleMain">404호 소각로</h1>
+      <div class="title-sub" id="titleSub">Incinerator No. 404</div>
+      <div class="title-btns">
+        <button class="big-btn" id="btnNew">출근한다</button>
+        <button class="big-btn ghost" id="btnContinue" hidden>이어서 근무</button>
+      </div>
+      <div class="title-meta" id="titleMeta"></div>
+      <details class="title-warn" id="titleWarn" hidden>
+        <summary id="titleWarnSum">데이터 점검</summary>
+        <ul id="titleWarnList"></ul>
+      </details>
+      <div class="title-note">소리가 있습니다 · 화면을 눌러 진행</div>
+    </div>
+  </div>
+
+  <div class="screen screen-daycard" id="screenDay" hidden>
+    <div class="daycard">
+      <div class="daycard-date" id="dayDate"></div>
+      <div class="daycard-title" id="dayTitle"></div>
+      <div class="daycard-quota" id="dayQuota"></div>
+    </div>
+  </div>
+
+  <div class="screen screen-report" id="screenReport" hidden>
+    <div class="report paper" id="reportCard"></div>
+  </div>
+
+  <div class="screen screen-finale" id="screenFinale" hidden>
+    <div class="finale">
+      <div class="finale-fire"><canvas id="finaleCanvas"></canvas></div>
+      <div class="finale-prompt" id="finalePrompt"></div>
+      <form class="finale-form" id="finaleForm" autocomplete="off">
+        <input id="finaleInput" class="finale-input" type="text" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="24" aria-label="소각 대상 입력">
+        <button class="big-btn" id="finaleSubmit" type="submit">투입</button>
+      </form>
+      <div class="finale-msg" id="finaleMsg"></div>
+      <div class="finale-fly" id="finaleFly"></div>
+    </div>
+  </div>
+
+  <div class="screen screen-ending" id="screenEnding" hidden>
+    <div class="ending">
+      <div class="ending-kicker">기록 종료</div>
+      <h2 class="ending-title" id="endingTitle"></h2>
+      <div class="ending-text" id="endingText"></div>
+      <div class="ending-stats" id="endingStats"></div>
+      <button class="big-btn" id="btnEndingBack">처음으로</button>
+    </div>
+  </div>
+
+  <div class="debug" id="debugPanel" hidden></div>
+</div>
+
+<!-- 스토리 데이터(제미나이 담당) → 사운드 → 엔진 순서로 로드. 모듈이 아닌 일반 스크립트라 file:// 에서도 동작한다. -->
+<script src="data/story-data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/engine.js"></script>
+</body>
+</html>
