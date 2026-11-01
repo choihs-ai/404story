@@ -16,7 +16,7 @@
 - **Claude Code**: 엔진, 상태 관리, UI/UX, 연출, Web Audio 절차적 사운드 (`js/`, `css/`, `index.html`, `tools/`)
 - **Gemini**: 세계관, 대사, 압류 기억 텍스트, 분기 설계, 일러스트 (`data/story-data.js`, `assets/`)
 
-`data/story-data.js` 는 제미나이 시나리오 v1(5일, 압류품 14개, 엔딩 3종)이다. 대사는 원문 그대로이고, `[Claude]` 주석이 붙은 3줄만 엔진 연결용으로 추가했다.
+`data/story-data.js` 는 제미나이 시나리오 v2(5일, 압류품 14개, 단서 플래그 3종, 엔딩 3종)이다. 대사는 원문 그대로이고, `[Claude]` 주석이 붙은 3줄은 v1 통합 때 Claude가 추가한 값을 제미나이가 유지한 것이다.
 데이터 형식은 [`docs/DATA_SCHEMA.md`](docs/DATA_SCHEMA.md) 를 따르며, 제미나이 v1 형식은 엔진이 자동 변환한다(16장).
 일러스트(`assets/bg/`, `assets/chars/`)가 아직 없어 기본 배경과 실루엣으로 표시된다.
 

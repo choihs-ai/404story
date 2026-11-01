@@ -50,6 +50,7 @@ window.GAME_DATA = {
 | `baseLight` | 0.4 | 하루 시작 시 등대 밝기 (0~1). 소각할수록 밝아짐 |
 | `hideDarken` | 0.05 | 은닉한 결정 1개당 화면이 영구히 어두워지는 정도 |
 | `hintSelfMemories` | `true` | 주인공 관련 결정을 카드·판독기에서 미세하게 깜빡이게 할지 |
+| `finalDayQuotaPenalty` | `false` | 최후의 타이핑이 있는 마지막 날 할당량 미달 벌점 여부 |
 
 ## 4. `characters`
 
@@ -287,12 +288,17 @@ endings: {
 | `seizedMemories[].grade` (모든 압류품에 있을 때) | 판독기가 등급을 자동 판정해 도장을 찍음. 등급 버튼은 숨김. `SSR` 같은 등급도 가능 |
 | `endings.inputPrompt` + 각 엔딩의 `triggerKeywords` | 마지막 챕터 뒤 최후의 타이핑 단계. 입력한 단어가 `triggerKeywords` 와 맞는 엔딩으로 감 |
 | `triggerKeywords: []` 인 엔딩 | 타이핑으로는 갈 수 없음. `meta.gameOverEnding` 으로 지정해 감찰 적발 엔딩으로 사용 |
+| 엔딩 객체의 `condition` (예: `"hidden:mem_502"`) | 그 엔딩의 `triggerKeywords` 를 받아들이는 조건. 조건이 거짓이면 오입력으로 처리 |
+| `endings.mismatchText`, `endings.placeholder` | 최후의 타이핑 오입력 문구, 입력칸 안내 |
+| `meta.rules.gradeTable: { SSR: 1000, S: 300, ... }` | 등급 → 최소 열량. 배열 형식 `[{ grade, min }]` 과 같다. 등급 도장 버튼이 이 표에서 만들어진다 |
 
 함께 추가된 필드:
 
 - `seizedMemories[].erasesNotebook: "all"` 소각 시 수첩 전체를 `█` 로 지움
 - `burnEffects` / `hideEffects` / 대사 `effects` 의 `muffle: 0.15` 배경음을 그만큼 영구히 더 먹먹하게 함 (0~1 누적)
 - `bgmMood` 에 `mystery`, `truth`, `climax` 추가 (별칭 `melancholy` = `sad`, `work` = `office`)
+- `meta.rules.finalDayQuotaPenalty` (기본 `false`) 최후의 타이핑이 있는 마지막 날에는 할당량 미달 벌점을 주지 않는다. 최후의 코어를 은닉하면 마지막 날 할당량은 구조상 채울 수 없으므로, 업무 보고서에서 적발 엔딩으로 끊기지 않게 하기 위함이다. `true` 로 두면 다른 날과 같이 벌점을 준다
+- `rules.requireGrade: true` 이고 압류품에 `grade` 가 적혀 있으면 그 값이 도장 정답이다. 등급표와 다르면 타이틀의 데이터 점검에 표시된다
 
 ## 17. 넘기기 전 점검
 

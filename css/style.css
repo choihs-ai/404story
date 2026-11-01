@@ -353,6 +353,8 @@ button:disabled { cursor: default; }
 .grade-btn:not(:disabled):hover { background: #2a1714; transform: translateY(-1px); }
 .grade-btn:not(:disabled):active { transform: scale(.92); }
 .grade-btn:disabled { opacity: .35; }
+.grade-btn.long { font-size: 13px; letter-spacing: -.03em; }
+.manual-text.numbered { list-style: none; padding-left: 0 !important; }
 .grade-btn.picked { background: var(--blood); color: #fff; opacity: 1; border-color: #ff9e94; }
 .action-row { display: flex; gap: 8px; flex: 1 1 auto; justify-content: flex-end; }
 .act-btn {

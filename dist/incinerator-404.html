@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<!-- 빌드: 2026-11-01 05:31 UTC · tools/build.js 로 생성된 파일입니다. 직접 고치지 말고 원본을 고친 뒤 다시 빌드하세요. -->
+<!-- 빌드: 2026-11-01 07:28 UTC · tools/build.js 로 생성된 파일입니다. 직접 고치지 말고 원본을 고친 뒤 다시 빌드하세요. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -368,6 +368,8 @@ button:disabled { cursor: default; }
 .grade-btn:not(:disabled):hover { background: #2a1714; transform: translateY(-1px); }
 .grade-btn:not(:disabled):active { transform: scale(.92); }
 .grade-btn:disabled { opacity: .35; }
+.grade-btn.long { font-size: 13px; letter-spacing: -.03em; }
+.manual-text.numbered { list-style: none; padding-left: 0 !important; }
 .grade-btn.picked { background: var(--blood); color: #fff; opacity: 1; border-color: #ff9e94; }
 .action-row { display: flex; gap: 8px; flex: 1 1 auto; justify-content: flex-end; }
 .act-btn {
@@ -737,10 +739,6 @@ button:disabled { cursor: default; }
         <div class="reader-controls">
           <div class="grade-row" id="gradeRow">
             <span class="grade-label">등급</span>
-            <button class="grade-btn" data-grade="S" disabled>S</button>
-            <button class="grade-btn" data-grade="A" disabled>A</button>
-            <button class="grade-btn" data-grade="B" disabled>B</button>
-            <button class="grade-btn" data-grade="C" disabled>C</button>
           </div>
           <div class="action-row">
             <button class="act-btn act-burn" id="btnBurn" disabled>소각</button>
@@ -840,20 +838,35 @@ button:disabled { cursor: default; }
 <script>
 /* data/story-data.js */
 // data/story-data.js
-// Project: 기억 압류 관리국: 404호 소각로 (Incinerator No. 404)
-//
-// 작성: 제미나이 (시나리오 v1). 대사·텍스트는 제미나이 원문 그대로다.
-// "[Claude]" 주석이 붙은 줄만 엔진 연결을 위해 Claude가 추가했다. (제미나이 원문의 결과 문장을 기능으로 옮긴 것)
-// 이 파일의 형식 차이(assets.portraits, notebook.linkedMemoryId/redactKeyword, endings.triggerKeywords 등)는
-// 엔진의 호환 계층(js/engine.js adaptData)이 규격(docs/DATA_SCHEMA.md)으로 변환한다.
+// Project: 기억 압류 관리국: 404호 소각로 (Incinerator No. 404) - Scenario v2
 
 window.GAME_DATA = {
   meta: {
     title: "기억 압류 관리국: 404호 소각로",
-    version: "1.0.0",
+    subtitle: "Incinerator No. 404",
+    version: "2.0.0",
     protagonistId: "0404",
     heroineName: "이리나",
-    gameOverEnding: "quotaFailure" // [Claude] 감찰 의심도 한도 도달 시 Ending C 로 연결 (triggerKeywords 가 비어 있는 엔딩)
+    protagonist: { id: "0404", name: "#0404", aliases: ["나", "0404"] },
+    gameOverEnding: "quotaFailure", // [Claude] Ending C를 감찰 의심도 100 도달 시 엔딩으로 연결
+    defaultEnding: "burnIrina",
+    manual: [
+      "1. 모든 감정평가사는 압류된 기억 결정의 열량(kcal)을 측정하여 규정된 등급 도장을 찍어야 한다.",
+      "2. 등급 기준표: [SSR] 1000 kcal 이상 / [S] 300~999 kcal / [A] 200~299 kcal / [B] 100~199 kcal / [C] 0~99 kcal.",
+      "3. 일일 목표 열량(Quota) 미달 또는 압류품 무단 은닉 적발 시 감찰국의 강제 초기화 처분에 처한다.",
+      "4. 판독 중 사번 #0404 본인과 연관된 불순 기억이 발견될 경우 지체 없이 소각하라."
+    ],
+    rules: {
+      requireGrade: true,
+      gradeTable: { SSR: 1000, S: 300, A: 200, B: 100, C: 0 },
+      hideSuspicion: 12,
+      wrongGradeSuspicion: 5,
+      quotaMissSuspicion: 20,
+      maxSuspicion: 100,
+      baseLight: 0.4,
+      hideDarken: 0.05,
+      hintSelfMemories: true
+    }
   },
 
   assets: {
@@ -938,7 +951,7 @@ window.GAME_DATA = {
           speaker: "감찰관",
           expression: "stern",
           portrait: "assets/chars/inspector_stern.png",
-          text: "판독기에 꽂아 등급만 확인하고 바로 소각로에 던져 넣어라. 채무자들의 구질구질한 사연에 사사로운 감정을 섞지 말고.",
+          text: "판독기에 꽂아 열량에 맞는 등급(B: 100~, A: 200~, S: 300~)을 확인하고 소각로에 던져 넣어라. 채무자들의 사연에 사사로운 감정을 섞지 말고.",
           bgmMood: "tense"
         },
         {
@@ -957,10 +970,11 @@ window.GAME_DATA = {
           grade: "B",
           previewText: "좁은 단칸방 마룻바닥. 비틀거리며 내 검지손가락을 꽉 잡던 작고 따뜻한 손의 온기와 서툰 웃음소리.",
           calories: 150,
+          suspicion: 8,
           isProtagonistMemory: false,
           redactKeyword: null,
           burnConsequence: "할당량 +150. 내일 시민 #8821이 창구에 찾아와 왜 자기 집에 작은 아기 신발이 있는지 묻는다.",
-          hideConsequence: "할당량 미달 위험. 서랍에 은닉됨. 시민 #8821의 기억이 온전히 보존된다."
+          hideConsequence: "서랍에 은닉됨(의심도 +8). 시민 #8821의 소중한 기억이 온전히 보존된다."
         },
         {
           id: "mem_102",
@@ -969,10 +983,11 @@ window.GAME_DATA = {
           grade: "B",
           previewText: "얼어붙은 손으로 봉투를 뜯던 골목길. 가로등 불빛 아래서 '최종 합격' 네 글자를 읽고 어머니를 부둥켜안던 밤.",
           calories: 150,
+          suspicion: 8,
           isProtagonistMemory: false,
           redactKeyword: null,
           burnConsequence: "할당량 +150. 시민 #3094는 자신이 왜 지금의 직장에서 일하고 있는지 동기를 잃어버린다.",
-          hideConsequence: "할당량 미달 위험. 서랍에 은닉됨. 감찰관의 의심도가 소폭 상승한다."
+          hideConsequence: "서랍에 은닉됨(의심도 +8). 감찰관의 의심도가 소폭 상승한다."
         },
         {
           id: "mem_103",
@@ -980,11 +995,12 @@ window.GAME_DATA = {
           title: "종탑 아래의 빗소리와 소녀",
           grade: "S",
           previewText: "무너진 성당의 종탑 아래. 잿빛 비를 피하며 내 외투 자락을 붙잡고 웃던 소녀. '내 이름은 이리나야, 잊지 마.'",
-          calories: 250,
+          calories: 300,
+          suspicion: 12,
           isProtagonistMemory: true,
           redactKeyword: "이리나",
-          burnConsequence: "할당량 +250 초과 달성. 개인 수첩에서 '이리나'라는 이름이 영구히 '███'로 소각된다.",
-          hideConsequence: "서랍 깊숙이 은닉됨. 수첩의 첫 페이지 기록이 선명하게 유지된다."
+          burnConsequence: "할당량 +300 달성. 개인 수첩에서 '이리나'라는 이름이 영구히 '███'로 소각된다.",
+          hideConsequence: "서랍 깊숙이 은닉됨(의심도 +12). 수첩의 첫 페이지 기록이 선명하게 유지된다."
         }
       ]
     },
@@ -997,24 +1013,42 @@ window.GAME_DATA = {
       background: "assets/bg/desk_404_normal.png",
       dialogues: [
         {
+          condition: "burned:mem_101",
           speaker: "시민 #8821",
           expression: "hollow",
           portrait: "assets/chars/citizen_shadow.png",
-          text: "저기요, 공무원 양반... 내 방 구석에 웬 작은 유아용 신발이 놓여 있던데, 혹시 내가 뭘 압류당했는지 아십니까?",
+          text: "저기요, 공무원 양반... 내 방 구석에 웬 작은 유아용 신발이 놓여 있던데, 혹시 어제 내가 뭘 압류당했는지 아십니까?",
           bgmMood: "melancholy"
         },
         {
+          condition: "burned:mem_101",
+          speaker: "이리나",
+          expression: "sad",
+          portrait: "assets/chars/irina_sad.png",
+          text: "(텅 빈 눈동자의 시민이 떠난 창구 너머에 낯익은 소녀가 서 있다) 안녕, 404호. 방금 그 사람, 결국 아이의 첫 걸음마를 잃어버렸네.",
+          bgmMood: "mystery"
+        },
+        {
+          condition: "hidden:mem_101",
+          speaker: "시민 #8821",
+          expression: "neutral",
+          portrait: "assets/chars/citizen_shadow.png",
+          text: "404호 평가사님 맞으시죠? 어제 제 압류 결정이 서류 누락으로 유예됐다는 통보를 받았습니다! 우리 아이 첫 걸음마 기억을 남겨주셔서 정말 고맙습니다...",
+          bgmMood: "work"
+        },
+        {
+          condition: "hidden:mem_101",
           speaker: "이리나",
           expression: "smile",
           portrait: "assets/chars/irina_smile.png",
-          text: "(시민이 떠난 창구 너머에 낯익은 소녀가 서 있다) 안녕, 404호. 오늘도 표정이 딱딱하네. 검지손가락으로 책상을 두드리는 버릇은 여전하고.",
+          text: "(환하게 웃는 시민이 떠난 창구 너머에 낯익은 소녀가 서 있다) 안녕, 404호. 몰래 기억을 빼돌려 주는 버릇은 여전하구나.",
           bgmMood: "mystery"
         },
         {
           speaker: "이리나",
           expression: "neutral",
           portrait: "assets/chars/irina_neutral.png",
-          text: "날 처음 본다는 얼굴이네. 괜찮아, 네가 잊어버린 건 내가 전부 기억하고 있으니까. 오늘 압류품 중에 네 것이 또 섞여 있을 거야.",
+          text: "날 처음 본다는 얼굴로 책상을 두드리고 있네. 괜찮아, 네가 잊어버린 건 내가 전부 기억하고 있으니까. 오늘 압류품 중에도 네 것이 섞여 있을 거야.",
           bgmMood: "mystery"
         }
       ],
@@ -1026,10 +1060,11 @@ window.GAME_DATA = {
           grade: "A",
           previewText: "새벽 4시 화덕 앞. 밀가루가 묻은 어머니의 주름진 손이 내 손을 포개어 반죽의 숨결을 느끼게 해주던 감각.",
           calories: 200,
+          suspicion: 10,
           isProtagonistMemory: false,
           redactKeyword: null,
           burnConsequence: "할당량 +200. 3구역 베이커리에서 더 이상 고소한 빵 냄새가 나지 않는다.",
-          hideConsequence: "할당량 확보 실패 위험. 제빵사의 기술이 지켜진다."
+          hideConsequence: "서랍에 은닉됨(의심도 +10). 제빵사의 기술이 지켜진다."
         },
         {
           id: "mem_202",
@@ -1038,10 +1073,11 @@ window.GAME_DATA = {
           grade: "A",
           previewText: "백색 침묵이 덮치던 외곽 초소. 나를 방벽 안으로 밀어 넣고 문고리를 걸어 잠그던 친구의 피 묻은 미소.",
           calories: 200,
+          suspicion: 10,
           isProtagonistMemory: false,
           redactKeyword: null,
           burnConsequence: "할당량 +200. 퇴역 경비대원은 다리를 절뚝거리면서도 왜 다쳤는지 기억하지 못한다.",
-          hideConsequence: "할당량 확보 실패 위험. 서랍에 은닉됨."
+          hideConsequence: "서랍에 은닉됨(의심도 +10). 전우에 대한 의리가 보존된다."
         },
         {
           id: "mem_203",
@@ -1049,11 +1085,12 @@ window.GAME_DATA = {
           title: "나눠 먹던 탄 호밀빵",
           grade: "S",
           previewText: "배급소가 닫힌 추운 밤, 이리나가 품에서 꺼내 반으로 쪼개 준 탄 호밀빵. 세상에서 가장 달콤했던 잿빛 식사.",
-          calories: 250,
+          calories: 300,
+          suspicion: 12,
           isProtagonistMemory: true,
           redactKeyword: "호밀빵",
-          burnConsequence: "할당량 +250. 개인 수첩에서 '호밀빵'에 대한 기억이 '███'로 소각되며, 이리나가 건네는 간식을 알아보지 못한다.",
-          hideConsequence: "서랍에 은닉됨. 이리나가 창구 너머에서 다정한 눈빛으로 미소 짓는다."
+          burnConsequence: "할당량 +300. 개인 수첩에서 '호밀빵'에 대한 기억이 '███'로 소각되며, 이리나가 건네는 간식을 알아보지 못한다.",
+          hideConsequence: "서랍에 은닉됨(의심도 +12). 이리나가 창구 너머에서 다정한 눈빛으로 미소 짓는다."
         }
       ]
     },
@@ -1069,7 +1106,7 @@ window.GAME_DATA = {
           speaker: "감찰관",
           expression: "stern",
           portrait: "assets/chars/inspector_stern.png",
-          text: "404호, 최근 네 소각로 투입 기록에 미세한 누락이 보인다. 명심해라, 기억을 모두 소진한 퇴물들은 외곽의 '공허의 망령'이 될 뿐이다.",
+          text: "404호, 최근 네 소각로 투입 기록에 미세한 편차가 보인다. 명심해라, 기억을 모두 소진한 퇴물들은 외곽의 '공허의 망령'이 될 뿐이다.",
           bgmMood: "tense"
         },
         {
@@ -1083,7 +1120,7 @@ window.GAME_DATA = {
           speaker: "이리나",
           expression: "neutral",
           portrait: "assets/chars/irina_neutral.png",
-          text: "네가 태우는 결정들이 정말로 이 도시를 구하고 있는 걸까? 오늘치 서류철을 열어봐.",
+          text: "전임자 #0399가 남긴 결정이 오늘 서류철에 들어왔어. 그 안에 등대 심장부로 통하는 단서가 있을지도 몰라.",
           bgmMood: "work"
         }
       ],
@@ -1091,14 +1128,16 @@ window.GAME_DATA = {
         {
           id: "mem_301",
           owner: "소각과 전임자 #0399 (망령화 판정)",
-          title: "딸에게 사주지 못한 오르골",
+          title: "딸에게 사주지 못한 오르골과 등대 도면",
           grade: "A",
-          previewText: "진열장 너머의 태엽 오르골. 이번 달 할당량만 채우면 꼭 사주겠다고 다짐했지만, 이젠 딸의 얼굴조차 흐릿하다.",
+          previewText: "진열장 너머의 태엽 오르골. 그리고 기억의 밑바닥에 겹쳐진 등대 중앙 소각로의 역투입 환기구 구조도.",
           calories: 250,
+          suspicion: 10,
           isProtagonistMemory: false,
           redactKeyword: null,
-          burnConsequence: "할당량 +250. 399호의 마지막 인간성이 소멸하여 외곽 구역에 망령 개체 수가 1 증가한다.",
-          hideConsequence: "서랍에 은닉됨. 전임자 #0399가 남긴 등대 구조도 단서를 획득한다."
+          hideEffects: { setFlags: ["clue_blueprint"] },
+          burnConsequence: "할당량 +250. 399호의 마지막 인간성과 등대 구조도 단서가 함께 소멸한다.",
+          hideConsequence: "서랍에 은닉됨(의심도 +10). [단서 획득: 등대 구조도] 소각로 코어를 역투입할 수 있는 구조적 결함을 파악했다."
         },
         {
           id: "mem_302",
@@ -1107,11 +1146,12 @@ window.GAME_DATA = {
           grade: "A",
           previewText: "등대 불빛이 흔들리던 축제날 밤, 바이올린 현이 끊어질 때까지 연주하던 3박자의 선율.",
           calories: 250,
+          suspicion: 10,
           isProtagonistMemory: false,
           redactKeyword: null,
+          burnEffects: { muffle: 0.15 }, // [Claude] "배경음이 한층 먹먹해진다"를 실제 소리에 적용
           burnConsequence: "할당량 +250. 거리에서 음악 소리가 사라지고 배경음이 한층 먹먹해진다.",
-          hideConsequence: "서랍에 은닉됨. 감찰관의 경고등이 켜진다.",
-          burnEffects: { muffle: 0.15 } // [Claude] burnConsequence 의 '배경음이 한층 먹먹해진다' 를 실제 소리에 적용
+          hideConsequence: "서랍에 은닉됨(의심도 +10). 거리의 마지막 선율이 보존된다."
         },
         {
           id: "mem_303",
@@ -1120,10 +1160,11 @@ window.GAME_DATA = {
           grade: "S",
           previewText: "무릎을 베고 누운 내 이마를 쓸어내리며 이리나가 불러주던 자장가. '재가 내려도 눈을 감지 마, 아침은 하얀 눈으로 올 거야.'",
           calories: 300,
+          suspicion: 12,
           isProtagonistMemory: true,
           redactKeyword: "자장가",
-          burnConsequence: "할당량 +300. 수첩의 '자장가' 단어가 '███'로 소각되며, 게임 내 배경음악에 로우패스 필터가 영구 적용된다.",
-          hideConsequence: "서랍에 은닉됨. 밤마다 꾸던 악몽 속에서 이리나의 목소리가 선명해진다."
+          burnConsequence: "할당량 +300. 수첩의 '자장가' 단어가 '███'로 소각되며, 이리나의 목소리가 흐릿해진다.",
+          hideConsequence: "서랍에 은닉됨(의심도 +12). 밤마다 꾸던 악몽 속에서 이리나의 목소리가 선명해진다."
         }
       ]
     },
@@ -1150,6 +1191,14 @@ window.GAME_DATA = {
           bgmMood: "truth"
         },
         {
+          condition: "flag:clue_blueprint",
+          speaker: "#0404",
+          expression: "neutral",
+          portrait: null,
+          text: "(어제 은닉한 #0399의 등대 구조도를 떠올린다. 중앙 소각로에 관리자 코어를 역투입하면 영사기 자체를 과부하로 멈출 수 있다.)",
+          bgmMood: "truth"
+        },
+        {
           speaker: "감찰관",
           expression: "stern",
           portrait: "assets/chars/inspector_stern.png",
@@ -1165,22 +1214,26 @@ window.GAME_DATA = {
           grade: "S",
           previewText: "생존자 0명. 자동 영사 시스템 '잿빛 등대' 가동 개시. 잔류 기억 데이터를 순환 연소하여 가상 도시 카르타의 외형을 유지함.",
           calories: 325,
+          suspicion: 10,
           isProtagonistMemory: false,
           redactKeyword: null,
+          hideEffects: { setFlags: ["clue_ark"] },
           burnConsequence: "할당량 +325. 세계의 진실이 담긴 기록이 다시 은폐된다.",
-          hideConsequence: "서랍에 은닉됨. 도시가 거대한 홀로그램 방주라는 결정적 증거를 확보한다."
+          hideConsequence: "서랍에 은닉됨(의심도 +10). [단서 획득: 홀로그램 방주 증거] 도시가 거대한 환영이라는 결정적 물증을 확보했다."
         },
         {
           id: "mem_402",
           owner: "감찰관 #0001 (본인 기억)",
           title: "첫 번째 루프의 선서",
           grade: "S",
-          previewText: "설령 영원한 거짓말일지라도, 인류가 존재했다는 흔적을 허공에 남기기 위해 나는 기꺼이 감찰관의 가면을 쓴다.",
+          previewText: "설령 영원한 거짓말일지라도, 인류가 존재했다는 흔적을 허공에 남기기 위해 나는 기꺼이 감찰관의 가면을 쓰고 내 가족의 기억까지 태운다.",
           calories: 325,
+          suspicion: 0,
           isProtagonistMemory: false,
           redactKeyword: null,
+          hideEffects: { setFlags: ["clue_inspector"], suspicion: -10 },
           burnConsequence: "할당량 +325. 감찰관이 잠시 멍한 표정으로 자신의 명찰을 내려다본다.",
-          hideConsequence: "서랍에 은닉됨. 감찰관의 약점을 쥔다."
+          hideConsequence: "서랍에 은닉됨(의심도 -10). [단서 획득: 감찰관의 약점] 감찰관 본인의 불법 은닉 코어를 쥐어 감찰 압박을 무력화했다."
         },
         {
           id: "mem_403",
@@ -1189,10 +1242,11 @@ window.GAME_DATA = {
           grade: "S",
           previewText: "쇠사슬에 묶인 채 외치던 내 목소리. '죽은 자들의 기억을 착취해 가짜 연극을 돌리는 건 그만둬!' 그리고 강제로 씌워진 기억 추출 헬멧.",
           calories: 400,
+          suspicion: 15,
           isProtagonistMemory: true,
           redactKeyword: "방화범",
           burnConsequence: "할당량 +400. 수첩의 '방화범' 기록이 '███'로 소각되며 체제에 저항하던 자신의 정체성을 완전히 잃는다.",
-          hideConsequence: "서랍에 은닉됨. 자신이 수십 번이나 기억이 초기화된 채 등대를 부수려 했던 저항군이었음을 각성한다."
+          hideConsequence: "서랍에 은닉됨(의심도 +15). 자신이 수십 번이나 기억이 초기화된 채 등대를 부수려 했던 저항군이었음을 각성한다."
         }
       ]
     },
@@ -1204,6 +1258,22 @@ window.GAME_DATA = {
       quota: 1000,
       background: "assets/bg/incinerator_core.png",
       dialogues: [
+        {
+          condition: "flag:clue_inspector",
+          speaker: "감찰관",
+          expression: "neutral",
+          portrait: "assets/chars/inspector_neutral.png",
+          text: "...내 첫 번째 루프의 선서 결정을 네가 쥐고 있었군. 좋다, 404호. 오늘만큼은 중앙 소각로 단말기 앞을 비워두겠다.",
+          bgmMood: "tense"
+        },
+        {
+          condition: "flag:clue_ark",
+          speaker: "#0404",
+          expression: "neutral",
+          portrait: null,
+          text: "(서기 2104년 대소멸 보고서의 내용이 머릿속에 선명하다. 이 도시는 이미 끝났고, 이제 영사기의 전원만을 남겨두고 있다.)",
+          bgmMood: "climax"
+        },
         {
           speaker: "이리나",
           expression: "smile",
@@ -1222,7 +1292,7 @@ window.GAME_DATA = {
           speaker: "이리나",
           expression: "neutral",
           portrait: "assets/chars/irina_neutral.png",
-          text: "이제 등대의 불꽃이 꺼져가. 날 소각로에 던져 넣으면 이 가짜 도시의 내일이 연장되고, 네 사번 '0404'를 투입해 과부하를 일으키면 이 영원한 루프가 끝나. 선택해 줘.",
+          text: "이제 등대의 불꽃이 꺼져가. 날 소각로에 던져 넣으면 이 가짜 도시의 내일이 연장되고, 마지막 코어를 지켜낸 뒤 네 사번 '0404'를 단말기에 역투입하면 이 영원한 루프가 끝나. 선택해 줘.",
           bgmMood: "climax"
         }
       ],
@@ -1234,6 +1304,7 @@ window.GAME_DATA = {
           grade: "S",
           previewText: "매일 같은 아침 인사를 나누고, 같은 빵을 굽고, 자신이 죽은 줄도 모른 채 미소 짓는 백만 명의 환영.",
           calories: 500,
+          suspicion: 0,
           isProtagonistMemory: false,
           redactKeyword: null,
           burnConsequence: "할당량 +500. 도시의 홀로그램 출력이 일시적으로 안정화된다.",
@@ -1246,11 +1317,12 @@ window.GAME_DATA = {
           grade: "SSR",
           previewText: "404호 데스크 창구 너머로 눈을 맞추던 순간들, 함께 나눈 온기, 그리고 설원에서 다시 만나자던 마지막 약속.",
           calories: 1000,
+          suspicion: 0,
           isProtagonistMemory: true,
           redactKeyword: "약속",
-          burnConsequence: "할당량 1000 달성. 수첩의 '약속'을 포함한 모든 글자가 소각되며 최종 타이핑 시퀀스(등대 점화)로 진입한다.",
-          hideConsequence: "최후의 코어를 가슴에 품는다. 최종 타이핑 시퀀스(소각로 파괴 및 탈출)로 진입한다.",
-          erasesNotebook: "all" // [Claude] burnConsequence 의 '모든 글자가 소각' 을 수첩 전체 소거로 구현
+          erasesNotebook: "all", // [Claude] "모든 글자가 소각"을 수첩 전체 소거로 구현
+          burnConsequence: "할당량 1000 달성. 수첩의 모든 글자가 소각되며, 단말기에는 점화 코드(이리나)만이 남는다.",
+          hideConsequence: "최후의 코어를 가슴에 품는다. 이제 단말기에 사번(0404)을 역투입해 소각로를 파괴할 수 있다."
         }
       ]
     }
@@ -1258,10 +1330,12 @@ window.GAME_DATA = {
 
   endings: {
     inputPrompt: "소각로 최종 제어 단말기 활성화. 투입할 코어의 식별명(이리나 또는 0404)을 직접 타이핑하십시오.",
+    mismatchText: "[단말기 오류] 승인되지 않은 식별명이거나, 이미 소각되어 역투입할 수 없는 코어입니다. 유효한 식별명을 다시 입력하십시오.",
     burnIrina: {
       triggerKeywords: ["이리나", "irina", "IRINA"],
       title: "Ending A: 잿빛 영원 (부서진 녹음기)",
       background: "assets/bg/desk_404_normal.png",
+      epilogue: "등대는 다시 타오르고 도시는 어제와 똑같은 아침을 맞이했다. 404호 데스크에 앉은 남자는 자신의 뺨을 타고 흐르는 눈물의 이유조차 모른 채, 다음 압류품을 향해 묵묵히 도장을 들어 올렸다.",
       dialogues: [
         {
           speaker: "이리나",
@@ -1284,15 +1358,24 @@ window.GAME_DATA = {
       ]
     },
     destroyLighthouse: {
+      condition: "hidden:mem_502",
       triggerKeywords: ["0404", "#0404", "404"],
       title: "Ending B: 백색 침묵 너머의 진짜 아침",
       background: "assets/bg/white_silence_snowfield.png",
+      epilogue: "수백 년간 허공을 밝혔던 거짓된 불꽃이 꺼지자, 마침내 시린 눈발과 함께 진짜 아침이 찾아왔다. 텅 빈 설원 위에 찍힌 두 줄기의 발자국만이, 그들이 더 이상 환영이 아님을 증명하고 있었다.",
       dialogues: [
         {
           speaker: "시스템",
           expression: "neutral",
           portrait: null,
           text: "[치명적 오류] 관리자 사번 #0404 코어 역투입 감지. 잿빛 등대 영사기가 영구 정지됩니다."
+        },
+        {
+          condition: "flag:clue_blueprint",
+          speaker: "#0404",
+          expression: "neutral",
+          portrait: null,
+          text: "399호가 남긴 도면대로야. 중앙 환기구가 열리고 있어... 이리나, 이쪽이야!"
         },
         {
           speaker: "이리나",
@@ -1312,6 +1395,7 @@ window.GAME_DATA = {
       triggerKeywords: [],
       title: "Ending C: 직무 유기 및 재압류",
       background: "assets/bg/desk_404_dim.png",
+      epilogue: "감찰국의 차가운 추출 헬멧이 내려앉는 순간, 책상 서랍 속에 숨겨두었던 작은 기억 결정들도 모두 압수되었다. 곧이어 404호 데스크에는 아무런 의심도 품지 않는 새로운 404호가 배치되었다.",
       dialogues: [
         {
           speaker: "감찰관",
@@ -1821,7 +1905,8 @@ window.GAME_DATA = {
     startSuspicion: 0,
     baseLight: 0.4,
     hideDarken: 0.05,
-    hintSelfMemories: true
+    hintSelfMemories: true,
+    finalDayQuotaPenalty: false
   };
   const KNOWN_EFFECTS = ['shake', 'glitch', 'flash', 'flicker', 'dark'];
   const MOOD_NAMES = (Sfx.MOOD_NAMES && Sfx.MOOD_NAMES.length) ? Sfx.MOOD_NAMES : ['office', 'calm', 'tense', 'dread', 'warm', 'sad', 'mystery', 'truth', 'climax', 'silence'];
@@ -1858,21 +1943,33 @@ window.GAME_DATA = {
       arr(c.seizedMemories).forEach((mm) => { if (mm) { collect(mm.onBurn); collect(mm.onHide); } });
     });
     // 엔딩: 문자열 값(inputPrompt)은 엔딩이 아니다. triggerKeywords 는 최후의 타이핑 정답이 된다.
-    let inputPrompt = null;
+    // 엔딩 객체 하나에 condition 이 있으면 그 엔딩으로 가는 입력의 조건으로 쓴다 (예: hidden:mem_502 일 때만 0404 허용)
+    const fin = {};
     const endings = {}, answers = [];
     Object.entries(d.endings && typeof d.endings === 'object' ? d.endings : {}).forEach(([k, v]) => {
-      if (typeof v === 'string') { if (k === 'inputPrompt') inputPrompt = v; return; }
-      endings[k] = v;
+      if (typeof v === 'string') { if (['inputPrompt', 'mismatchText', 'placeholder'].includes(k)) fin[k] = v; return; }
+      let ev = v;
+      if (v && !Array.isArray(v) && Array.isArray(v.triggerKeywords) && v.condition != null) {
+        ev = Object.assign({}, v); delete ev.condition;
+      }
+      endings[k] = ev;
       arr(v).forEach((x) => {
         if (!x) return;
         collect(x.dialogues);
-        if (Array.isArray(x.triggerKeywords) && x.triggerKeywords.length) answers.push({ match: x.triggerKeywords.slice(), ending: k });
+        if (Array.isArray(x.triggerKeywords) && x.triggerKeywords.length) {
+          const a = { match: x.triggerKeywords.slice(), ending: k };
+          if (!Array.isArray(v) && v.condition != null) a.condition = v.condition;
+          answers.push(a);
+        }
       });
     });
     d.endings = endings;
-    if (chapters.length && (answers.length || inputPrompt) && !chapters.some((c) => c && c.finale)) {
+    if (chapters.length && (answers.length || fin.inputPrompt) && !chapters.some((c) => c && c.finale)) {
       const li = chapters.length - 1;
-      chapters[li] = Object.assign({}, chapters[li], { finale: { prompt: inputPrompt || '', answers } });
+      const finale = { prompt: fin.inputPrompt || '', answers };
+      if (fin.mismatchText) finale.mismatchText = fin.mismatchText;
+      if (fin.placeholder) finale.placeholder = fin.placeholder;
+      chapters[li] = Object.assign({}, chapters[li], { finale });
     }
     // 초상화 그룹 → 화자
     const groups = (d.assets && d.assets.portraits) || {};
@@ -1917,7 +2014,9 @@ window.GAME_DATA = {
     }
     const m = raw.meta || {};
     const r = Object.assign({}, DEFAULT_RULES, m.rules || {});
-    r.gradeTable = arr(r.gradeTable).length ? arr(r.gradeTable).slice().sort((a, b) => (b.min || 0) - (a.min || 0)) : DEFAULT_RULES.gradeTable;
+    let gt = r.gradeTable;
+    if (gt && !Array.isArray(gt) && typeof gt === 'object') gt = Object.entries(gt).map(([grade, min]) => ({ grade, min: Number(min) || 0 }));
+    r.gradeTable = arr(gt).length ? arr(gt).slice().sort((a, b) => (b.min || 0) - (a.min || 0)) : DEFAULT_RULES.gradeTable;
     const protagonist = Object.assign({ id: '0404', name: '#0404' }, m.protagonist || {});
     const selfNames = new Set(['#' + protagonist.id, String(protagonist.id), protagonist.name, '나', '주인공'].concat(arr(protagonist.aliases)));
     const meta = {
@@ -2064,6 +2163,10 @@ window.GAME_DATA = {
         const mw = `${w}.${m.id}`;
         ['title', 'previewText'].forEach((k) => { if (!m[k]) warn(`${mw}: ${k} 가 비어 있습니다.`); });
         if (!m.calories) warn(`${mw}: calories 가 0 입니다.`);
+        if (rules.requireGrade && m.grade && rules.gradeTable.some((g) => g.grade === m.grade)) {
+          const byTable = (rules.gradeTable.find((g) => m.calories >= (g.min || 0)) || {}).grade;
+          if (byTable && byTable !== m.grade) warn(`${mw}: grade "${m.grade}" 가 열량 ${m.calories} 의 등급표 기준 "${byTable}" 와 다릅니다 (도장 정답은 "${m.grade}").`);
+        }
         if (rules.requireGrade && m.grade && !rules.gradeTable.some((g) => g.grade === m.grade)) warn(`${mw}: grade "${m.grade}" 가 gradeTable 에 없습니다.`);
         checkCond(m.condition, mw); checkText(m.previewText, mw); checkText(m.title, mw);
         checkLines(m.onBurn, `${mw}.onBurn`); checkLines(m.onHide, `${mw}.onHide`);
@@ -2239,7 +2342,13 @@ window.GAME_DATA = {
     'finaleInput', 'finaleSubmit', 'finaleMsg', 'finaleFly', 'screenEnding', 'endingTitle', 'endingText', 'endingStats', 'btnEndingBack', 'debugPanel'
   ].forEach((id) => { E[id] = $(id); });
   const root = document.documentElement;
-  const gradeBtns = Array.from(E.gradeRow.querySelectorAll('.grade-btn'));
+  const gradeBtns = rules.gradeTable.map((g) => {
+    const b = h('button', 'grade-btn' + (String(g.grade).length > 1 ? ' long' : ''), g.grade);
+    b.type = 'button'; b.dataset.grade = g.grade; b.disabled = true;
+    b.setAttribute('aria-label', `등급 ${g.grade} 도장`);
+    E.gradeRow.appendChild(b);
+    return b;
+  });
 
   const ui = {
     dialogueOpen: false, busy: false, current: null,
@@ -2657,7 +2766,7 @@ window.GAME_DATA = {
     const cons = action === 'burn' ? m.burnConsequence : m.hideConsequence;
     const headline = action === 'burn'
       ? `▶ 소각 완료 · 열량 +${m.calories}${wrong ? `\n▶ 등급 오판정 (정답 ${S.grades[m.id].correct}) · 감찰 의심 +${rules.wrongGradeSuspicion}` : ''}`
-      : `▶ 서랍에 은닉 · 감찰 의심 +${m.suspicion != null ? m.suspicion : rules.hideSuspicion}`;
+      : `▶ 서랍에 은닉 · 감찰 의심 ${signed(hideNet(m))}`;
     box.innerHTML = esc(headline) + (cons ? '\n\n' + richHTML(cons) : '');
     E.readerContent.appendChild(box);
     E.readerContent.scrollTop = E.readerContent.scrollHeight;
@@ -2687,6 +2796,11 @@ window.GAME_DATA = {
     else await sleep(400);
   }
 
+  const signed = (n) => (n >= 0 ? '+' : '') + n;
+  function hideNet(m) {
+    const base = m.suspicion != null ? Number(m.suspicion) : rules.hideSuspicion;
+    return base + (m.hideEffects && Number(m.hideEffects.suspicion) || 0);
+  }
   async function doHide(m) {
     ui.busy = true; refreshLock(); setControls();
     Sfx.setHum(false);
@@ -2696,11 +2810,11 @@ window.GAME_DATA = {
     const sus = m.suspicion != null ? Number(m.suspicion) : rules.hideSuspicion;
     addSuspicion(sus);
     applyEffectObject(m.hideEffects);
-    S.dayLog.push({ id: m.id, action: 'hide', title: m.title, sus, cons: m.hideConsequence });
+    S.dayLog.push({ id: m.id, action: 'hide', title: m.title, sus: hideNet(m), cons: m.hideConsequence });
     S.history.push({ day: S.chapterIndex + 1, id: m.id, action: 'hide' });
     updateHUD();
     showResult(m, 'hide');
-    toast(`은닉 · ${esc(plain(m.title))} · 감찰 의심 +${sus}`, 'hide', 2600);
+    toast(`은닉 · ${esc(plain(m.title))} · 감찰 의심 ${signed(hideNet(m))}`, 'hide', 2600);
     await sleep(450);
   }
 
@@ -2836,7 +2950,7 @@ window.GAME_DATA = {
         <table><thead><tr><th>${C('등급', 'c1')}</th><th>${C('열량', 'c2')}</th></tr></thead><tbody>${rows}</tbody></table>` : ''}
         <h3 style="font-size:14px;margin:12px 0 6px">${C('업무 절차', 'ph')}</h3>
         <ol class="manual-text">${steps.map((s, i) => `<li>${C(s, 'st' + i)}</li>`).join('')}</ol>
-        ${D.meta.manual.length ? `<h3 style="font-size:14px;margin:14px 0 6px">${C('규정', 'rh')}</h3><ul class="manual-text">${D.meta.manual.map((s, i) => `<li>${C(s, 'm' + i)}</li>`).join('')}</ul>` : ''}`;
+        ${D.meta.manual.length ? `<h3 style="font-size:14px;margin:14px 0 6px">${C('규정', 'rh')}</h3><ul class="manual-text${D.meta.manual.every((x) => /^\s*\d+[.)]/.test(String(x))) ? ' numbered' : ''}">${D.meta.manual.map((s, i) => `<li>${C(s, 'm' + i)}</li>`).join('')}</ul>` : ''}`;
     }, '', true);
   }
 
@@ -2966,10 +3080,11 @@ window.GAME_DATA = {
   async function dayReport(ch) {
     const met = ch.quota <= 0 || S.dayHeat >= ch.quota;
     S.quota[ch.id] = met;
-    if (!met) addSuspicion(rules.quotaMissSuspicion);
+    const penalty = !met && (!ch.finale || rules.finalDayQuotaPenalty);
+    if (penalty) addSuspicion(rules.quotaMissSuspicion);
     const items = S.dayLog.map((x) => {
       const tag = x.action === 'burn' ? `<span class="tag burn">소각${x.grade || x.correct ? ' ' + esc(x.grade || x.correct) : ''}</span>` : '<span class="tag hide">은닉</span>';
-      const extra = x.action === 'burn' ? ` · +${x.heat}${x.wrong ? ` · <b style="color:#a4321e">오판정(${esc(x.correct)})</b>` : ''}` : ` · 의심 +${x.sus}`;
+      const extra = x.action === 'burn' ? ` · +${x.heat}${x.wrong ? ` · <b style="color:#a4321e">오판정(${esc(x.correct)})</b>` : ''}` : ` · 의심 ${signed(x.sus)}`;
       return `<li>${tag}${richHTML(x.title)}<small style="font-family:var(--f-mono);color:#6d6252">${extra}</small>${x.cons ? `<span class="cons">${richHTML(x.cons)}</span>` : ''}</li>`;
     }).join('');
     E.reportCard.innerHTML = `
@@ -2977,7 +3092,7 @@ window.GAME_DATA = {
       <p class="sub">${esc(plain(ch.title))} · 감정평가사 ${corruptHTML('#' + D.meta.protagonist.id, corruptLevel() * 0.6, 'rep')}</p>
       <div class="report-row"><span>할당량</span><span>${ch.quota}</span></div>
       <div class="report-row"><span>생산 열량</span><span>${S.dayHeat}</span></div>
-      <div class="report-row"><span>감찰 의심도</span><span>${Math.round(S.suspicion)}${met ? '' : ` (할당량 미달 +${rules.quotaMissSuspicion})`}</span></div>
+      <div class="report-row"><span>감찰 의심도</span><span>${Math.round(S.suspicion)}${penalty ? ` (할당량 미달 +${rules.quotaMissSuspicion})` : ''}</span></div>
       <ul class="report-items">${items || '<li>처리 내역 없음</li>'}</ul>
       <button class="big-btn" id="btnReportOk">퇴근</button>`;
     E.screenReport.hidden = false;

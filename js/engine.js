@@ -39,7 +39,8 @@
     startSuspicion: 0,
     baseLight: 0.4,
     hideDarken: 0.05,
-    hintSelfMemories: true
+    hintSelfMemories: true,
+    finalDayQuotaPenalty: false
   };
   const KNOWN_EFFECTS = ['shake', 'glitch', 'flash', 'flicker', 'dark'];
   const MOOD_NAMES = (Sfx.MOOD_NAMES && Sfx.MOOD_NAMES.length) ? Sfx.MOOD_NAMES : ['office', 'calm', 'tense', 'dread', 'warm', 'sad', 'mystery', 'truth', 'climax', 'silence'];
@@ -76,21 +77,33 @@
       arr(c.seizedMemories).forEach((mm) => { if (mm) { collect(mm.onBurn); collect(mm.onHide); } });
     });
     // 엔딩: 문자열 값(inputPrompt)은 엔딩이 아니다. triggerKeywords 는 최후의 타이핑 정답이 된다.
-    let inputPrompt = null;
+    // 엔딩 객체 하나에 condition 이 있으면 그 엔딩으로 가는 입력의 조건으로 쓴다 (예: hidden:mem_502 일 때만 0404 허용)
+    const fin = {};
     const endings = {}, answers = [];
     Object.entries(d.endings && typeof d.endings === 'object' ? d.endings : {}).forEach(([k, v]) => {
-      if (typeof v === 'string') { if (k === 'inputPrompt') inputPrompt = v; return; }
-      endings[k] = v;
+      if (typeof v === 'string') { if (['inputPrompt', 'mismatchText', 'placeholder'].includes(k)) fin[k] = v; return; }
+      let ev = v;
+      if (v && !Array.isArray(v) && Array.isArray(v.triggerKeywords) && v.condition != null) {
+        ev = Object.assign({}, v); delete ev.condition;
+      }
+      endings[k] = ev;
       arr(v).forEach((x) => {
         if (!x) return;
         collect(x.dialogues);
-        if (Array.isArray(x.triggerKeywords) && x.triggerKeywords.length) answers.push({ match: x.triggerKeywords.slice(), ending: k });
+        if (Array.isArray(x.triggerKeywords) && x.triggerKeywords.length) {
+          const a = { match: x.triggerKeywords.slice(), ending: k };
+          if (!Array.isArray(v) && v.condition != null) a.condition = v.condition;
+          answers.push(a);
+        }
       });
     });
     d.endings = endings;
-    if (chapters.length && (answers.length || inputPrompt) && !chapters.some((c) => c && c.finale)) {
+    if (chapters.length && (answers.length || fin.inputPrompt) && !chapters.some((c) => c && c.finale)) {
       const li = chapters.length - 1;
-      chapters[li] = Object.assign({}, chapters[li], { finale: { prompt: inputPrompt || '', answers } });
+      const finale = { prompt: fin.inputPrompt || '', answers };
+      if (fin.mismatchText) finale.mismatchText = fin.mismatchText;
+      if (fin.placeholder) finale.placeholder = fin.placeholder;
+      chapters[li] = Object.assign({}, chapters[li], { finale });
     }
     // 초상화 그룹 → 화자
     const groups = (d.assets && d.assets.portraits) || {};
@@ -135,7 +148,9 @@
     }
     const m = raw.meta || {};
     const r = Object.assign({}, DEFAULT_RULES, m.rules || {});
-    r.gradeTable = arr(r.gradeTable).length ? arr(r.gradeTable).slice().sort((a, b) => (b.min || 0) - (a.min || 0)) : DEFAULT_RULES.gradeTable;
+    let gt = r.gradeTable;
+    if (gt && !Array.isArray(gt) && typeof gt === 'object') gt = Object.entries(gt).map(([grade, min]) => ({ grade, min: Number(min) || 0 }));
+    r.gradeTable = arr(gt).length ? arr(gt).slice().sort((a, b) => (b.min || 0) - (a.min || 0)) : DEFAULT_RULES.gradeTable;
     const protagonist = Object.assign({ id: '0404', name: '#0404' }, m.protagonist || {});
     const selfNames = new Set(['#' + protagonist.id, String(protagonist.id), protagonist.name, '나', '주인공'].concat(arr(protagonist.aliases)));
     const meta = {
@@ -282,6 +297,10 @@
         const mw = `${w}.${m.id}`;
         ['title', 'previewText'].forEach((k) => { if (!m[k]) warn(`${mw}: ${k} 가 비어 있습니다.`); });
         if (!m.calories) warn(`${mw}: calories 가 0 입니다.`);
+        if (rules.requireGrade && m.grade && rules.gradeTable.some((g) => g.grade === m.grade)) {
+          const byTable = (rules.gradeTable.find((g) => m.calories >= (g.min || 0)) || {}).grade;
+          if (byTable && byTable !== m.grade) warn(`${mw}: grade "${m.grade}" 가 열량 ${m.calories} 의 등급표 기준 "${byTable}" 와 다릅니다 (도장 정답은 "${m.grade}").`);
+        }
         if (rules.requireGrade && m.grade && !rules.gradeTable.some((g) => g.grade === m.grade)) warn(`${mw}: grade "${m.grade}" 가 gradeTable 에 없습니다.`);
         checkCond(m.condition, mw); checkText(m.previewText, mw); checkText(m.title, mw);
         checkLines(m.onBurn, `${mw}.onBurn`); checkLines(m.onHide, `${mw}.onHide`);
@@ -457,7 +476,13 @@
     'finaleInput', 'finaleSubmit', 'finaleMsg', 'finaleFly', 'screenEnding', 'endingTitle', 'endingText', 'endingStats', 'btnEndingBack', 'debugPanel'
   ].forEach((id) => { E[id] = $(id); });
   const root = document.documentElement;
-  const gradeBtns = Array.from(E.gradeRow.querySelectorAll('.grade-btn'));
+  const gradeBtns = rules.gradeTable.map((g) => {
+    const b = h('button', 'grade-btn' + (String(g.grade).length > 1 ? ' long' : ''), g.grade);
+    b.type = 'button'; b.dataset.grade = g.grade; b.disabled = true;
+    b.setAttribute('aria-label', `등급 ${g.grade} 도장`);
+    E.gradeRow.appendChild(b);
+    return b;
+  });
 
   const ui = {
     dialogueOpen: false, busy: false, current: null,
@@ -875,7 +900,7 @@
     const cons = action === 'burn' ? m.burnConsequence : m.hideConsequence;
     const headline = action === 'burn'
       ? `▶ 소각 완료 · 열량 +${m.calories}${wrong ? `\n▶ 등급 오판정 (정답 ${S.grades[m.id].correct}) · 감찰 의심 +${rules.wrongGradeSuspicion}` : ''}`
-      : `▶ 서랍에 은닉 · 감찰 의심 +${m.suspicion != null ? m.suspicion : rules.hideSuspicion}`;
+      : `▶ 서랍에 은닉 · 감찰 의심 ${signed(hideNet(m))}`;
     box.innerHTML = esc(headline) + (cons ? '\n\n' + richHTML(cons) : '');
     E.readerContent.appendChild(box);
     E.readerContent.scrollTop = E.readerContent.scrollHeight;
@@ -905,6 +930,11 @@
     else await sleep(400);
   }
 
+  const signed = (n) => (n >= 0 ? '+' : '') + n;
+  function hideNet(m) {
+    const base = m.suspicion != null ? Number(m.suspicion) : rules.hideSuspicion;
+    return base + (m.hideEffects && Number(m.hideEffects.suspicion) || 0);
+  }
   async function doHide(m) {
     ui.busy = true; refreshLock(); setControls();
     Sfx.setHum(false);
@@ -914,11 +944,11 @@
     const sus = m.suspicion != null ? Number(m.suspicion) : rules.hideSuspicion;
     addSuspicion(sus);
     applyEffectObject(m.hideEffects);
-    S.dayLog.push({ id: m.id, action: 'hide', title: m.title, sus, cons: m.hideConsequence });
+    S.dayLog.push({ id: m.id, action: 'hide', title: m.title, sus: hideNet(m), cons: m.hideConsequence });
     S.history.push({ day: S.chapterIndex + 1, id: m.id, action: 'hide' });
     updateHUD();
     showResult(m, 'hide');
-    toast(`은닉 · ${esc(plain(m.title))} · 감찰 의심 +${sus}`, 'hide', 2600);
+    toast(`은닉 · ${esc(plain(m.title))} · 감찰 의심 ${signed(hideNet(m))}`, 'hide', 2600);
     await sleep(450);
   }
 
@@ -1054,7 +1084,7 @@
         <table><thead><tr><th>${C('등급', 'c1')}</th><th>${C('열량', 'c2')}</th></tr></thead><tbody>${rows}</tbody></table>` : ''}
         <h3 style="font-size:14px;margin:12px 0 6px">${C('업무 절차', 'ph')}</h3>
         <ol class="manual-text">${steps.map((s, i) => `<li>${C(s, 'st' + i)}</li>`).join('')}</ol>
-        ${D.meta.manual.length ? `<h3 style="font-size:14px;margin:14px 0 6px">${C('규정', 'rh')}</h3><ul class="manual-text">${D.meta.manual.map((s, i) => `<li>${C(s, 'm' + i)}</li>`).join('')}</ul>` : ''}`;
+        ${D.meta.manual.length ? `<h3 style="font-size:14px;margin:14px 0 6px">${C('규정', 'rh')}</h3><ul class="manual-text${D.meta.manual.every((x) => /^\s*\d+[.)]/.test(String(x))) ? ' numbered' : ''}">${D.meta.manual.map((s, i) => `<li>${C(s, 'm' + i)}</li>`).join('')}</ul>` : ''}`;
     }, '', true);
   }
 
@@ -1184,10 +1214,11 @@
   async function dayReport(ch) {
     const met = ch.quota <= 0 || S.dayHeat >= ch.quota;
     S.quota[ch.id] = met;
-    if (!met) addSuspicion(rules.quotaMissSuspicion);
+    const penalty = !met && (!ch.finale || rules.finalDayQuotaPenalty);
+    if (penalty) addSuspicion(rules.quotaMissSuspicion);
     const items = S.dayLog.map((x) => {
       const tag = x.action === 'burn' ? `<span class="tag burn">소각${x.grade || x.correct ? ' ' + esc(x.grade || x.correct) : ''}</span>` : '<span class="tag hide">은닉</span>';
-      const extra = x.action === 'burn' ? ` · +${x.heat}${x.wrong ? ` · <b style="color:#a4321e">오판정(${esc(x.correct)})</b>` : ''}` : ` · 의심 +${x.sus}`;
+      const extra = x.action === 'burn' ? ` · +${x.heat}${x.wrong ? ` · <b style="color:#a4321e">오판정(${esc(x.correct)})</b>` : ''}` : ` · 의심 ${signed(x.sus)}`;
       return `<li>${tag}${richHTML(x.title)}<small style="font-family:var(--f-mono);color:#6d6252">${extra}</small>${x.cons ? `<span class="cons">${richHTML(x.cons)}</span>` : ''}</li>`;
     }).join('');
     E.reportCard.innerHTML = `
@@ -1195,7 +1226,7 @@
       <p class="sub">${esc(plain(ch.title))} · 감정평가사 ${corruptHTML('#' + D.meta.protagonist.id, corruptLevel() * 0.6, 'rep')}</p>
       <div class="report-row"><span>할당량</span><span>${ch.quota}</span></div>
       <div class="report-row"><span>생산 열량</span><span>${S.dayHeat}</span></div>
-      <div class="report-row"><span>감찰 의심도</span><span>${Math.round(S.suspicion)}${met ? '' : ` (할당량 미달 +${rules.quotaMissSuspicion})`}</span></div>
+      <div class="report-row"><span>감찰 의심도</span><span>${Math.round(S.suspicion)}${penalty ? ` (할당량 미달 +${rules.quotaMissSuspicion})` : ''}</span></div>
       <ul class="report-items">${items || '<li>처리 내역 없음</li>'}</ul>
       <button class="big-btn" id="btnReportOk">퇴근</button>`;
     E.screenReport.hidden = false;
